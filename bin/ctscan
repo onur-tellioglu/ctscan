@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.2.2"
+VERSION="0.2.3"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -114,27 +114,21 @@ check_storage() {
   avail=$(echo "$disk_info" | awk '{print $4}')
   pct=$(echo "$disk_info" | awk '{print $5}')
 
-  $QUIET || print_info "Disk /: $used used of $total ($pct full), $avail available"
-
-  # Cache total + threshold check
+  # Cache threshold check (quiet mode warning)
   if [[ -d ~/Library/Caches ]]; then
+    local cache_size_kb
     cache_size_kb=$(du -sk ~/Library/Caches 2>/dev/null | awk '{print $1}')
-    cache_size_gb=$(echo "scale=1; $cache_size_kb / 1048576" | bc 2>/dev/null || echo "?")
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
+      local cache_size_gb
+      cache_size_gb=$(echo "scale=1; $cache_size_kb / 1048576" | bc 2>/dev/null)
       print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
     fi
   fi
 
   $QUIET && return
 
-  # Top cache hogs
-  echo
-  color "0;32" "  Top cache items:"
+  # Raw du output — cache and AppSupport merged, no sub-headers
   du -sh ~/Library/Caches/* 2>/dev/null | sort -rh | head -5 | while IFS= read -r line; do print_info "$line"; done
-
-  # Top Application Support hogs
-  echo
-  color "0;32" "  Top Application Support items:"
   du -sh ~/Library/Application\ Support/* 2>/dev/null | sort -rh | head -5 | while IFS= read -r line; do print_info "$line"; done
 }
 
@@ -216,7 +210,7 @@ check_battery() {
   done
   [[ -n "$design_cap" && -n "$fcc_cap" ]] && \
     print_info "Design: ${design_cap} mAh | Real Max: ${fcc_cap} mAh | Cycles: ${cycles}"
-  [[ -n "$health_pct" ]] && print_ok "Calculated Physical Health: ${health_pct}%"
+  [[ -n "$health_pct" ]] && print_info "Calculated Physical Health: ${health_pct}%"
 }
 
 # ──────────────────────────────────────────────
@@ -245,10 +239,8 @@ check_thermal() {
   # Raw pmset therm output
   echo "$therm_out" | grep -v '^$' | while IFS= read -r line; do print_info "$line"; done
 
-  echo
-  local gpu
-  gpu=$(system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Vendor" | head -1)
-  [[ -n "$gpu" ]] && print_info "GPU:$gpu"
+  print_info "GPU Activity Check:"
+  system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Vendor" | while IFS= read -r line; do print_info "$line"; done
 }
 
 # ──────────────────────────────────────────────
@@ -272,22 +264,9 @@ check_memory() {
 
   $QUIET && return
 
-  local mem_out pageouts mem_free
-  mem_out=$(memory_pressure 2>/dev/null)
-  pageouts=$(echo "$mem_out" | grep -i "Pageouts" | awk '{print $NF}')
-  mem_free=$(echo "$mem_out" | grep -i "System-wide memory free percentage" | awk '{print $NF}')
-  [[ -n "$pageouts" ]]  && print_info "Pageouts:    $pageouts"
-  [[ -n "$mem_free" ]]  && print_info "Memory free: $mem_free"
-
+  # Raw memory_pressure output (preserves blank line between pageouts and free%)
+  memory_pressure 2>/dev/null | tail -3 | while IFS= read -r line; do print_info "$line"; done
   print_info "$swap_out"
-
-  local total_mem
-  total_mem=$(sysctl -n hw.memsize 2>/dev/null)
-  if [[ -n "$total_mem" ]]; then
-    local total_gb
-    total_gb=$(echo "scale=0; $total_mem / 1073741824" | bc)
-    print_info "Total RAM: ${total_gb}GB"
-  fi
 }
 
 # ──────────────────────────────────────────────
@@ -302,22 +281,16 @@ check_wifi() {
   signal_line=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1)
   signal_dbm=$(echo "$signal_line" | grep -oE -- '-[0-9]+ dBm' | head -1 | grep -oE -- '-[0-9]+')
 
-  if [[ -n "$signal_dbm" ]]; then
-    if [[ "$signal_dbm" -lt -70 ]]; then
-      print_warn "Wi-Fi signal: ${signal_dbm} dBm (weak, <-70 dBm)"
-    else
-      $QUIET || print_ok "Wi-Fi signal: ${signal_dbm} dBm"
-    fi
-  else
-    $QUIET || print_info "Wi-Fi signal data unavailable (not connected?)"
+  if [[ -n "$signal_dbm" && "$signal_dbm" -lt -70 ]]; then
+    print_warn "Wi-Fi signal weak: ${signal_dbm} dBm (<-70 dBm)"
   fi
 
   $QUIET && return
 
-  # Full signal info: Locale, Signal/Noise, Transmit Rate
+  # Single "Signal Info: ..." line matching original format
   local info_line
   info_line=$(echo "$wifi_out" | grep -E "Locale|Signal / Noise|Transmit Rate" | xargs echo)
-  [[ -n "$info_line" ]] && print_info "$info_line"
+  [[ -n "$info_line" ]] && print_info "Signal Info: $info_line"
 }
 
 # ──────────────────────────────────────────────
@@ -336,10 +309,9 @@ check_security() {
 
   $QUIET && return
 
-  # Raw output verbatim
+  # Raw output verbatim (no spctl — matches original)
   print_info "$fv_status"
   print_info "$sip_status"
-  print_info "$(spctl --status 2>/dev/null)"
 }
 
 # ──────────────────────────────────────────────
