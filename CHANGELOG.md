@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] - 2026-04-04
+
+### Added
+- `processes` module: top 5 processes by CPU and by memory; warns if any process >80% CPU
+- `docker` module: running containers and disk usage; graceful degradation if Docker absent
+- `timemachine` module: last backup age and status; warns if backup >24h ago
+- `updates` module: pending macOS software updates via `softwareupdate -l`; warns if updates available
+- `storage` module: disk summary line showing used/total/percent
+
 ## [0.1.0] - 2026-04-04
 
 ### Added

@@ -78,21 +78,30 @@ echo
 
 # ── Basic flags ───────────────────────────────
 assert_exit0   "--version exits 0"              --version
-assert_output_contains "--version prints version" "ctscan 0." --version
+assert_output_contains "--version prints version" "ctscan 0.3.0" --version
 assert_exit0   "--help exits 0"                 --help
 assert_exit0   "--no-color exits 0"             --no-color identity
 
 # ── Individual modules ────────────────────────
-for mod in identity brew agents storage battery thermal memory wifi security; do
+for mod in identity brew agents storage battery thermal memory processes wifi security; do
   assert_exit0 "module $mod runs without error" "$mod"
 done
 
 # SSD may warn but must not crash
 assert_exit0 "module ssd runs without error" ssd
 
+# New modules — graceful degradation required
+assert_exit0 "module docker runs without error (degrades if absent)"      docker
+assert_exit0 "module timemachine runs without error (degrades if absent)" timemachine
+assert_exit0 "module updates runs without error"                          updates
+
+# Storage disk summary line
+assert_output_contains "storage output contains Disk: line" "Disk:" storage
+
 # ── --skip ────────────────────────────────────
-assert_output_excludes "--skip brew removes brew section" "Homebrew" --skip brew identity
-assert_exit0           "--skip multiple modules exits 0"             --skip ssd,brew
+assert_output_excludes "--skip brew removes brew section"      "Homebrew"  --skip brew identity
+assert_output_excludes "--skip processes removes processes section" "Processes" --skip processes identity
+assert_exit0           "--skip multiple modules exits 0"                        --skip ssd,brew
 
 # ── --no-color ────────────────────────────────
 assert_no_ansi "--no-color produces no ANSI codes" --no-color identity
