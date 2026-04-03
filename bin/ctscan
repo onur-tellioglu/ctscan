@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.1.0"
+VERSION="0.2.0"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -56,19 +56,22 @@ check_brew() {
     return
   fi
 
-  $QUIET && return
-
-  local formulae casks
-  formulae=$(brew leaves 2>/dev/null | wc -l | tr -d ' ')
-  casks=$(brew list --cask 2>/dev/null | wc -l | tr -d ' ')
-  print_info "Formulae (leaves): $formulae"
-  print_info "Casks:             $casks"
-
   local outdated
   outdated=$(brew outdated 2>/dev/null | wc -l | tr -d ' ')
   if [[ "$outdated" -gt 0 ]]; then
     print_warn "$outdated package(s) outdated — run: brew upgrade"
-  else
+  fi
+
+  $QUIET && return
+
+  echo
+  color "0;32" "  Formulae (leaves):"
+  brew leaves 2>/dev/null | xargs -n 5 | while IFS= read -r line; do print_info "$line"; done
+  echo
+  color "0;32" "  Casks:"
+  brew list --cask 2>/dev/null | xargs -n 5 | while IFS= read -r line; do print_info "$line"; done
+
+  if [[ "$outdated" -eq 0 ]]; then
     print_ok "All packages up to date"
   fi
 }
@@ -80,11 +83,21 @@ check_agents() {
   print_header "Launch Agents & Daemons"
   $QUIET && return
 
-  local user_agents sys_daemons
-  user_agents=$(ls ~/Library/LaunchAgents 2>/dev/null | wc -l | tr -d ' ')
-  sys_daemons=$(ls /Library/LaunchDaemons 2>/dev/null | wc -l | tr -d ' ')
-  print_info "User launch agents:   $user_agents"
-  print_info "System launch daemons: $sys_daemons"
+  local dirs=(
+    "$HOME/Library/LaunchAgents"
+    "/Library/LaunchAgents"
+    "/Library/LaunchDaemons"
+  )
+  for dir in "${dirs[@]}"; do
+    color "0;32" "  $dir:"
+    local files
+    files=$(ls "$dir" 2>/dev/null)
+    if [[ -n "$files" ]]; then
+      echo "$files" | while IFS= read -r f; do print_info "$f"; done
+    else
+      print_info "(empty)"
+    fi
+  done
 }
 
 # ──────────────────────────────────────────────
@@ -101,20 +114,28 @@ check_storage() {
   avail=$(echo "$disk_info" | awk '{print $4}')
   pct=$(echo "$disk_info" | awk '{print $5}')
 
-  $QUIET || {
-    print_info "Disk /: $used used of $total ($pct full), $avail available"
-  }
+  $QUIET || print_info "Disk /: $used used of $total ($pct full), $avail available"
 
-  # Cache check
+  # Cache total + threshold check
   if [[ -d ~/Library/Caches ]]; then
     cache_size_kb=$(du -sk ~/Library/Caches 2>/dev/null | awk '{print $1}')
     cache_size_gb=$(echo "scale=1; $cache_size_kb / 1048576" | bc 2>/dev/null || echo "?")
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
-      print_warn "Cache size: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
-    else
-      $QUIET || print_ok "Cache size: ${cache_size_gb}GB"
+      print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
     fi
   fi
+
+  $QUIET && return
+
+  # Top cache hogs
+  echo
+  color "0;32" "  Top cache items:"
+  du -sh ~/Library/Caches/* 2>/dev/null | sort -rh | head -5 | while IFS= read -r line; do print_info "$line"; done
+
+  # Top Application Support hogs
+  echo
+  color "0;32" "  Top Application Support items:"
+  du -sh ~/Library/Application\ Support/* 2>/dev/null | sort -rh | head -5 | while IFS= read -r line; do print_info "$line"; done
 }
 
 # ──────────────────────────────────────────────
@@ -136,6 +157,8 @@ check_ssd() {
   fi
 
   pct_used=$(echo "$smart_out" | grep -i "Percentage Used" | awk '{print $NF}' | tr -d '%')
+  local tbw
+  tbw=$(echo "$smart_out" | grep -i "Data Units Written" | awk -F'[[]' '{print $2}' | tr -d ']')
 
   if [[ -z "$pct_used" ]]; then
     $QUIET || print_info "SSD wear data not available"
@@ -147,6 +170,9 @@ check_ssd() {
   else
     $QUIET || print_ok "SSD wear: ${pct_used}% used"
   fi
+
+  $QUIET && return
+  [[ -n "$tbw" ]] && print_info "Total bytes written: $tbw"
 }
 
 # ──────────────────────────────────────────────
@@ -161,36 +187,36 @@ check_battery() {
   ioreg_out=$(ioreg -r -c AppleSmartBattery 2>/dev/null)
 
   cycles=$(echo "$ioreg_out" | grep -E '^\s+"CycleCount"' | awk '{print $NF}')
-  max_cap=$(echo "$ioreg_out" | grep -E '^\s+"MaxCapacity"' | awk '{print $NF}')
-  local design_cap
-  design_cap=$(echo "$ioreg_out" | grep -E '^\s+"DesignCapacity"' | awk '{print $NF}')
+  local design_cap fcc_cap
+  # DesignCapacity and FccComp1 live inside the nested BatteryData dict — match anywhere
+  design_cap=$(echo "$ioreg_out" | grep -o '"DesignCapacity"=[0-9]*' | cut -d= -f2 | head -1)
+  fcc_cap=$(echo "$ioreg_out"    | grep -o '"FccComp1"=[0-9]*'      | cut -d= -f2 | head -1)
 
-  # On Apple Silicon, MaxCapacity is already a health % (0-100).
-  # On Intel Macs, it's in mAh — compute against DesignCapacity.
-  if [[ -n "$max_cap" ]]; then
-    if [[ "$max_cap" -le 100 ]]; then
-      health_pct="$max_cap"
-    elif [[ -n "$design_cap" && "$design_cap" -gt 0 ]]; then
-      health_pct=$(echo "scale=0; $max_cap * 100 / $design_cap" | bc 2>/dev/null)
+  # Precise health: FccComp1 / DesignCapacity (works on both Silicon and Intel)
+  if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
+    health_pct=$(echo "scale=4; $fcc_cap / $design_cap * 100" | bc 2>/dev/null)
+    local health_int=${health_pct%.*}
+    if [[ "${health_int:-100}" -lt 80 ]]; then
+      print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
+    else
+      $QUIET || print_ok "Battery health: ${health_pct}%"
     fi
-  fi
-
-  if [[ -n "$health_pct" && "$health_pct" -lt 80 ]]; then
-    print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
-  elif [[ -n "$health_pct" ]]; then
-    $QUIET || print_ok "Battery health: ${health_pct}%"
   fi
 
   if [[ -n "$cycles" && "$cycles" -gt 1000 ]]; then
     print_warn "Cycle count: $cycles (>1000)"
-  else
-    $QUIET || [[ -n "$cycles" ]] && print_info "Cycle count: $cycles"
+  elif [[ -n "$cycles" ]]; then
+    $QUIET || print_info "Cycle count: $cycles"
   fi
 
   $QUIET && return
 
-  local charge
-  charge=$(pmset -g batt 2>/dev/null | grep -oE '[0-9]+%' | head -1)
+  [[ -n "$design_cap" ]] && [[ -n "$fcc_cap" ]] && \
+    print_info "Design: ${design_cap} mAh  |  Real max: ${fcc_cap} mAh"
+
+  local charge charge_line
+  charge_line=$(pmset -g batt 2>/dev/null | grep -v "Now drawing")
+  charge=$(echo "$charge_line" | grep -oE '[0-9]+%' | head -1)
   [[ -n "$charge" ]] && print_info "Current charge: $charge"
 }
 
@@ -204,25 +230,26 @@ check_thermal() {
   therm_out=$(pmset -g therm 2>/dev/null)
   pressure=$(echo "$therm_out" | grep -i "Thermal Level" | awk '{print $NF}')
 
-  if [[ -z "$pressure" ]]; then
-    # Try alternate key
-    pressure=$(echo "$therm_out" | grep -oE 'CPU_Speed_Limit = [0-9]+' | awk '{print $NF}')
-    if [[ -n "$pressure" && "$pressure" -lt 100 ]]; then
-      print_warn "CPU throttled: speed limit at ${pressure}%"
-    else
-      $QUIET || print_ok "No thermal throttling detected"
-    fi
-  elif [[ "$pressure" != "0" && "$pressure" != "Nominal" ]]; then
+  local cpu_limit
+  cpu_limit=$(echo "$therm_out" | grep -oE 'CPU_Speed_Limit = [0-9]+' | awk '{print $NF}')
+
+  if [[ -n "$cpu_limit" && "$cpu_limit" -lt 100 ]]; then
+    print_warn "CPU throttled: speed limit at ${cpu_limit}%"
+  elif [[ -n "$pressure" && "$pressure" != "0" && "$pressure" != "Nominal" ]]; then
     print_warn "Thermal pressure: $pressure (not Nominal)"
   else
-    $QUIET || print_ok "Thermal pressure: Nominal"
+    $QUIET || print_ok "No thermal throttling detected"
   fi
 
   $QUIET && return
 
+  # Raw pmset therm output
+  echo "$therm_out" | grep -v '^$' | while IFS= read -r line; do print_info "$line"; done
+
+  echo
   local gpu
-  gpu=$(system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Chipset Model" | head -1 | awk -F': ' '{print $2}')
-  [[ -n "$gpu" ]] && print_info "GPU: $gpu"
+  gpu=$(system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Vendor" | head -1)
+  [[ -n "$gpu" ]] && print_info "GPU:$gpu"
 }
 
 # ──────────────────────────────────────────────
@@ -242,15 +269,18 @@ check_memory() {
 
   if [[ -n "$swap_used_mb" && "${swap_mb_int:-0}" -gt "$swap_mb_threshold" ]]; then
     print_warn "Swap usage: ${swap_used_gb}GB (>2GB) — memory pressure high"
-  else
-    $QUIET || [[ -n "$swap_used_mb" ]] && print_ok "Swap usage: ${swap_used_gb}GB"
   fi
 
   $QUIET && return
 
-  local mem_pressure
-  mem_pressure=$(memory_pressure 2>/dev/null | grep -i "System-wide memory free percentage" | awk '{print $NF}')
-  [[ -n "$mem_pressure" ]] && print_info "Memory free: $mem_pressure"
+  local mem_out pageouts mem_free
+  mem_out=$(memory_pressure 2>/dev/null)
+  pageouts=$(echo "$mem_out" | grep -i "Pageouts" | awk '{print $NF}')
+  mem_free=$(echo "$mem_out" | grep -i "System-wide memory free percentage" | awk '{print $NF}')
+  [[ -n "$pageouts" ]]  && print_info "Pageouts:    $pageouts"
+  [[ -n "$mem_free" ]]  && print_info "Memory free: $mem_free"
+
+  print_info "$swap_out"
 
   local total_mem
   total_mem=$(sysctl -n hw.memsize 2>/dev/null)
@@ -285,10 +315,10 @@ check_wifi() {
 
   $QUIET && return
 
-  local ssid
-  ssid=$(echo "$wifi_out" | grep -E "^\s+Current Network" | head -1 | awk -F': ' '{print $2}')
-  [[ -z "$ssid" ]] && ssid=$(echo "$wifi_out" | grep -A3 "Status: Connected" | grep -i "SSID" | awk -F': ' '{print $2}')
-  [[ -n "$ssid" ]] && print_info "Network: $ssid"
+  # Full signal info: Locale, Signal/Noise, Transmit Rate
+  local info_line
+  info_line=$(echo "$wifi_out" | grep -E "Locale|Signal / Noise|Transmit Rate" | xargs echo)
+  [[ -n "$info_line" ]] && print_info "$info_line"
 }
 
 # ──────────────────────────────────────────────
