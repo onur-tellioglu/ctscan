@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.3.0"
+VERSION="0.3.1"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -452,7 +452,7 @@ check_updates() {
   updates=$(echo "$su_out" | grep -E '^\s*\*' | sed 's/^\s*\* //')
 
   local count
-  count=$(echo "$updates" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
+  count=$(echo "$updates" | grep -c '[^[:space:]]' 2>/dev/null || true)
 
   if [[ "$count" -gt 0 ]]; then
     print_warn "$count update$( [[ $count -eq 1 ]] || echo s ) available"
