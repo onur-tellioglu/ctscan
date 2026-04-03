@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -205,19 +205,17 @@ check_battery() {
 
   if [[ -n "$cycles" && "$cycles" -gt 1000 ]]; then
     print_warn "Cycle count: $cycles (>1000)"
-  elif [[ -n "$cycles" ]]; then
-    $QUIET || print_info "Cycle count: $cycles"
   fi
 
   $QUIET && return
 
   [[ -n "$design_cap" ]] && [[ -n "$fcc_cap" ]] && \
-    print_info "Design: ${design_cap} mAh  |  Real max: ${fcc_cap} mAh"
+    print_info "Design: ${design_cap} mAh  |  Real max: ${fcc_cap} mAh  |  Cycles: ${cycles}"
 
-  local charge charge_line
-  charge_line=$(pmset -g batt 2>/dev/null | grep -v "Now drawing")
-  charge=$(echo "$charge_line" | grep -oE '[0-9]+%' | head -1)
-  [[ -n "$charge" ]] && print_info "Current charge: $charge"
+  # Full pmset status line (charging state, time remaining)
+  pmset -g batt 2>/dev/null | grep -v "Now drawing" | while IFS= read -r line; do
+    [[ -n "$line" ]] && print_info "$line"
+  done
 }
 
 # ──────────────────────────────────────────────
