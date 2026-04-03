@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.2] - 2026-04-04
+
+### Added
+- Footer showing `ctscan <version>` at the end of every scan
+
 ## [0.3.1] - 2026-04-04
 
 ### Fixed

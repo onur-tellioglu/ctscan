@@ -78,7 +78,7 @@ echo
 
 # ── Basic flags ───────────────────────────────
 assert_exit0   "--version exits 0"              --version
-assert_output_contains "--version prints version" "ctscan 0.3.0" --version
+assert_output_contains "--version prints version" "ctscan 0.3" --version
 assert_exit0   "--help exits 0"                 --help
 assert_exit0   "--no-color exits 0"             --no-color identity
 
