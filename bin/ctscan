@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.2.1"
+VERSION="0.2.2"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -43,7 +43,7 @@ check_identity() {
   print_info "Host:    $hostname"
   [[ -n "$model" ]] && print_info "Model:   $model"
   print_info "macOS:   $os_ver"
-  print_info "Uptime:  $uptime_str"
+  print_info "$(uptime)"
 }
 
 # ──────────────────────────────────────────────
@@ -167,12 +167,14 @@ check_ssd() {
 
   if [[ "$pct_used" -gt 80 ]]; then
     print_warn "SSD wear: ${pct_used}% used (>80%) — consider planning replacement"
-  else
-    $QUIET || print_ok "SSD wear: ${pct_used}% used"
   fi
 
   $QUIET && return
-  [[ -n "$tbw" ]] && print_info "Total bytes written: $tbw"
+
+  # Raw smartctl lines verbatim
+  echo "$smart_out" | grep -E "Percentage Used|Data Units Written" | while IFS= read -r line; do
+    print_info "$line"
+  done
 }
 
 # ──────────────────────────────────────────────
@@ -192,14 +194,13 @@ check_battery() {
   design_cap=$(echo "$ioreg_out" | grep -o '"DesignCapacity"=[0-9]*' | cut -d= -f2 | head -1)
   fcc_cap=$(echo "$ioreg_out"    | grep -o '"FccComp1"=[0-9]*'      | cut -d= -f2 | head -1)
 
-  # Precise health: FccComp1 / DesignCapacity (works on both Silicon and Intel)
+  # Precise health: FccComp1 / DesignCapacity
+  local health_pct=""
   if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
     health_pct=$(echo "scale=4; $fcc_cap / $design_cap * 100" | bc 2>/dev/null)
     local health_int=${health_pct%.*}
     if [[ "${health_int:-100}" -lt 80 ]]; then
       print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
-    else
-      $QUIET || print_ok "Battery health: ${health_pct}%"
     fi
   fi
 
@@ -209,13 +210,13 @@ check_battery() {
 
   $QUIET && return
 
-  [[ -n "$design_cap" ]] && [[ -n "$fcc_cap" ]] && \
-    print_info "Design: ${design_cap} mAh  |  Real max: ${fcc_cap} mAh  |  Cycles: ${cycles}"
-
-  # Full pmset status line (charging state, time remaining)
+  # Match original order: pmset line → mAh → health
   pmset -g batt 2>/dev/null | grep -v "Now drawing" | while IFS= read -r line; do
     [[ -n "$line" ]] && print_info "$line"
   done
+  [[ -n "$design_cap" && -n "$fcc_cap" ]] && \
+    print_info "Design: ${design_cap} mAh | Real Max: ${fcc_cap} mAh | Cycles: ${cycles}"
+  [[ -n "$health_pct" ]] && print_ok "Calculated Physical Health: ${health_pct}%"
 }
 
 # ──────────────────────────────────────────────
@@ -325,34 +326,20 @@ check_wifi() {
 check_security() {
   print_header "Security"
 
-  # FileVault
-  local fv_status
+  local fv_status sip_status
   fv_status=$(fdesetup status 2>/dev/null)
-  if echo "$fv_status" | grep -qi "FileVault is Off"; then
-    print_warn "FileVault: OFF — disk is not encrypted"
-  else
-    $QUIET || print_ok "FileVault: ON"
-  fi
-
-  # SIP
-  local sip_status
   sip_status=$(csrutil status 2>/dev/null)
-  if echo "$sip_status" | grep -qi "disabled"; then
-    print_warn "SIP (System Integrity Protection): DISABLED"
-  else
-    $QUIET || print_ok "SIP: enabled"
-  fi
+
+  # Threshold checks for --quiet
+  echo "$fv_status" | grep -qi "FileVault is Off" && print_warn "FileVault: OFF — disk is not encrypted"
+  echo "$sip_status" | grep -qi "disabled"        && print_warn "SIP: DISABLED"
 
   $QUIET && return
 
-  # Gatekeeper
-  local gk
-  gk=$(spctl --status 2>/dev/null)
-  if echo "$gk" | grep -qi "disabled"; then
-    print_warn "Gatekeeper: disabled"
-  else
-    print_ok "Gatekeeper: enabled"
-  fi
+  # Raw output verbatim
+  print_info "$fv_status"
+  print_info "$sip_status"
+  print_info "$(spctl --status 2>/dev/null)"
 }
 
 # ──────────────────────────────────────────────
