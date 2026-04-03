@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.2.3"
+VERSION="0.3.0"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -113,6 +113,9 @@ check_storage() {
   used=$(echo "$disk_info" | awk '{print $3}')
   avail=$(echo "$disk_info" | awk '{print $4}')
   pct=$(echo "$disk_info" | awk '{print $5}')
+
+  # Disk summary line (always shown)
+  print_info "Disk: $used used / $total total ($pct full)"
 
   # Cache threshold check (quiet mode warning)
   if [[ -d ~/Library/Caches ]]; then
@@ -270,6 +273,199 @@ check_memory() {
 }
 
 # ──────────────────────────────────────────────
+# Module: processes
+# ──────────────────────────────────────────────
+check_processes() {
+  print_header "Processes"
+
+  local ps_out
+  ps_out=$(ps aux 2>/dev/null)
+
+  # Quiet threshold: any single process >80% CPU
+  local high_cpu_proc high_cpu_pct
+  high_cpu_proc=$(echo "$ps_out" | awk 'NR>1 {print $3, $11}' | sort -rn | head -1)
+  high_cpu_pct=$(echo "$high_cpu_proc" | awk '{print $1}' | cut -d. -f1)
+  if [[ -n "$high_cpu_pct" && "$high_cpu_pct" -gt 80 ]]; then
+    local proc_name
+    proc_name=$(echo "$high_cpu_proc" | awk '{print $2}' | xargs basename 2>/dev/null)
+    local full_pct
+    full_pct=$(echo "$high_cpu_proc" | awk '{print $1}')
+    print_warn "High CPU: $proc_name at ${full_pct}%"
+  fi
+
+  $QUIET && return
+
+  echo
+  color "0;32" "  Top by CPU:"
+  echo "$ps_out" | awk 'NR>1 {printf "%6.1f  %s\n", $3, $11}' | sort -rn | head -5 | while IFS= read -r line; do
+    local pct name
+    pct=$(echo "$line" | awk '{print $1}')
+    name=$(echo "$line" | awk '{print $2}' | xargs basename 2>/dev/null)
+    print_info "$(printf '%5s%%  %s' "$pct" "$name")"
+  done
+
+  echo
+  color "0;32" "  Top by Memory:"
+  echo "$ps_out" | awk 'NR>1 {printf "%10d  %s\n", $6, $11}' | sort -rn | head -5 | while IFS= read -r line; do
+    local kb name display
+    kb=$(echo "$line" | awk '{print $1}')
+    name=$(echo "$line" | awk '{print $2}' | xargs basename 2>/dev/null)
+    if [[ "$kb" -ge 1048576 ]]; then
+      display=$(echo "scale=1; $kb/1048576" | bc)G
+    elif [[ "$kb" -ge 1024 ]]; then
+      display=$(echo "scale=0; $kb/1024" | bc)M
+    else
+      display="${kb}K"
+    fi
+    print_info "$(printf '%-6s  %s' "$display" "$name")"
+  done
+}
+
+# ──────────────────────────────────────────────
+# Module: docker
+# ──────────────────────────────────────────────
+check_docker() {
+  print_header "Docker"
+
+  if ! command -v docker &>/dev/null; then
+    print_info "Docker not installed — install from https://www.docker.com"
+    return
+  fi
+
+  local ps_out
+  if ! ps_out=$(docker ps 2>&1); then
+    print_info "Docker not running"
+    return
+  fi
+
+  local running
+  running=$(echo "$ps_out" | tail -n +2 | wc -l | tr -d ' ')
+
+  if [[ "$running" -eq 0 ]]; then
+    print_ok "No containers running"
+  else
+    print_info "Running containers: $running"
+    echo "$ps_out" | tail -n +2 | while IFS= read -r line; do
+      local image status
+      image=$(echo "$line" | awk '{print $2}')
+      status=$(echo "$line" | awk '{for(i=5;i<=NF;i++) printf "%s ", $i; print ""}' | sed 's/ $//')
+      print_info "$(printf '%-22s %s' "$image" "$status")"
+    done
+  fi
+
+  $QUIET && return
+
+  local df_out
+  df_out=$(docker system df 2>/dev/null)
+  if [[ -n "$df_out" ]]; then
+    echo
+    local images vols img_size cont_size vol_size total_size
+    images=$(echo "$df_out" | awk '/^Images/{print $2}')
+    vols=$(echo "$df_out" | awk '/^Local Volumes/{print $2}')
+    img_size=$(echo "$df_out" | awk '/^Images/{print $4}')
+    cont_size=$(echo "$df_out" | awk '/^Containers/{print $4}')
+    vol_size=$(echo "$df_out" | awk '/^Local Volumes/{print $4}')
+    total_size=$(echo "$df_out" | awk '/^Build Cache/{print $4}')
+    print_info "Images: ${images:-0}  |  Volumes: ${vols:-0}"
+    print_info "Disk usage: ${img_size:-0} images · ${cont_size:-0} containers · ${vol_size:-0} volumes"
+  fi
+}
+
+# ──────────────────────────────────────────────
+# Module: timemachine
+# ──────────────────────────────────────────────
+check_timemachine() {
+  print_header "Time Machine"
+
+  local latest_backup dest_info status_out
+  latest_backup=$(tmutil latestbackup 2>/dev/null)
+  dest_info=$(tmutil destinationinfo 2>/dev/null)
+
+  if [[ -z "$latest_backup" && -z "$dest_info" ]]; then
+    print_info "Time Machine not configured"
+    return
+  fi
+
+  # Parse last backup date from path (format: .../YYYY-MM-DD-HHMMSS)
+  local backup_date backup_ts now_ts age_hours age_display
+  backup_date=$(echo "$latest_backup" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}' | tail -1)
+
+  if [[ -n "$backup_date" ]]; then
+    local date_part time_part
+    date_part=$(echo "$backup_date" | cut -c1-10)
+    time_part=$(echo "$backup_date" | cut -c12-17)
+    local formatted_time="${time_part:0:2}:${time_part:2:2}"
+    backup_ts=$(date -j -f "%Y-%m-%d %H%M%S" "${date_part} ${time_part}" "+%s" 2>/dev/null)
+    now_ts=$(date "+%s")
+    if [[ -n "$backup_ts" ]]; then
+      age_hours=$(( (now_ts - backup_ts) / 3600 ))
+      if [[ "$age_hours" -ge 24 ]]; then
+        local age_days=$(( age_hours / 24 ))
+        age_display="${age_days} day$( [[ $age_days -eq 1 ]] || echo s ) ago"
+        print_warn "Last backup: $age_display — Time Machine may not be running"
+      else
+        age_display="${age_hours} hour$( [[ $age_hours -eq 1 ]] || echo s ) ago"
+        print_ok "Last backup: $age_display ($date_part $formatted_time)"
+      fi
+    fi
+  else
+    print_info "Last backup: unknown"
+  fi
+
+  $QUIET && return
+
+  # Destination name
+  local dest_name
+  dest_name=$(echo "$dest_info" | awk -F': ' '/Name/{print $2; exit}')
+  local dest_kind
+  dest_kind=$(echo "$dest_info" | awk -F': ' '/Kind/{print $2; exit}')
+  [[ -n "$dest_name" ]] && print_info "Destination: $dest_name${dest_kind:+ ($dest_kind)}"
+
+  # Status
+  local status_out bkp_status bkp_progress
+  status_out=$(tmutil status 2>/dev/null)
+  if echo "$status_out" | grep -q '"Running" = 1'; then
+    bkp_progress=$(echo "$status_out" | grep -i "Percent" | grep -oE '[0-9.]+' | head -1)
+    if [[ -n "$bkp_progress" ]]; then
+      local pct_int
+      pct_int=$(echo "$bkp_progress * 100 / 1" | bc 2>/dev/null)
+      print_info "Status: backing up (${pct_int}% complete)"
+    else
+      print_info "Status: backing up"
+    fi
+  else
+    print_info "Status: idle"
+  fi
+}
+
+# ──────────────────────────────────────────────
+# Module: updates
+# ──────────────────────────────────────────────
+check_updates() {
+  print_header "Updates"
+
+  local su_out
+  su_out=$(softwareupdate -l 2>&1)
+
+  # Filter out noise lines
+  local updates
+  updates=$(echo "$su_out" | grep -E '^\s*\*' | sed 's/^\s*\* //')
+
+  local count
+  count=$(echo "$updates" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
+
+  if [[ "$count" -gt 0 ]]; then
+    print_warn "$count update$( [[ $count -eq 1 ]] || echo s ) available"
+    $QUIET && return
+    echo "$updates" | while IFS= read -r line; do
+      [[ -n "$line" ]] && print_info "$line"
+    done
+  else
+    print_ok "No updates available"
+  fi
+}
+
+# ──────────────────────────────────────────────
 # Module: wifi
 # ──────────────────────────────────────────────
 check_wifi() {
@@ -317,7 +513,7 @@ check_security() {
 # ──────────────────────────────────────────────
 # ALL_MODULES — ordered list for dispatch
 # ──────────────────────────────────────────────
-ALL_MODULES=(identity brew agents storage ssd battery thermal memory wifi security)
+ALL_MODULES=(identity brew agents storage ssd battery thermal memory processes docker timemachine updates wifi security)
 
 # ──────────────────────────────────────────────
 # parse_args
@@ -391,6 +587,10 @@ MODULES (default: all):
   battery     Battery analytics
   thermal     Thermal & GPU state
   memory      RAM pressure & swap
+  processes   Top CPU & memory consumers
+  docker      Running containers & disk usage
+  timemachine Last backup date & status
+  updates     Pending macOS software updates
   wifi        Network signal strength
   security    Security & SIP status
 
