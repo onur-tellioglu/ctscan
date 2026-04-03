@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.1] - 2026-04-04
+
+### Fixed
+- `updates` module: arithmetic error when no updates available (`grep -c` exit code 1 caused `|| echo 0` to produce `"0\n0"`)
+
 ## [0.3.0] - 2026-04-04
 
 ### Added
