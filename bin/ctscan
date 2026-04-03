@@ -128,10 +128,12 @@ check_ssd() {
   fi
 
   local smart_out pct_used
-  smart_out=$(smartctl -a /dev/disk0 2>/dev/null) || {
-    print_warn "smartctl could not read disk0 (may need sudo or unsupported disk)"
+  # smartctl uses bitmask exit codes — non-zero doesn't mean failure
+  smart_out=$(smartctl -a /dev/disk0 2>/dev/null)
+  if [[ -z "$smart_out" ]]; then
+    print_warn "smartctl could not read disk0 (unsupported disk)"
     return
-  }
+  fi
 
   pct_used=$(echo "$smart_out" | grep -i "Percentage Used" | awk '{print $NF}' | tr -d '%')
 
