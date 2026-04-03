@@ -1,0 +1,82 @@
+# ctscan
+
+A macOS system health scanner for the terminal. Runs 10 diagnostic checks covering identity, storage, battery, thermals, memory, network, and security.
+
+## Install
+
+```bash
+brew tap onurtellioglu/ctscan
+brew install ctscan
+```
+
+## Usage
+
+```
+ctscan [OPTIONS] [MODULES...]
+```
+
+Run all checks:
+```bash
+ctscan
+```
+
+Run specific modules:
+```bash
+ctscan battery wifi
+```
+
+Skip modules:
+```bash
+ctscan --skip ssd storage
+```
+
+Pipe-friendly output:
+```bash
+ctscan --no-color | tee health.log
+```
+
+Critical values only (CI/scripts):
+```bash
+ctscan --quiet
+```
+
+## Modules
+
+| Module   | What it checks                                |
+|----------|-----------------------------------------------|
+| identity | Hostname, model, macOS version, uptime        |
+| brew     | Homebrew formula & cask counts, outdated pkgs |
+| agents   | Launch agents & daemon counts                 |
+| storage  | Disk usage, cache size                        |
+| ssd      | SSD wear level (requires `smartmontools`)     |
+| battery  | Health %, cycle count, current charge         |
+| thermal  | Thermal throttling, GPU model                 |
+| memory   | Swap usage, memory free %, total RAM          |
+| wifi     | Signal strength (dBm), network name           |
+| security | FileVault, SIP, Gatekeeper status             |
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--skip <mod1,mod2>` | Skip specified modules |
+| `--no-color` | Disable colored output |
+| `--quiet` | Print critical values only |
+| `--version` | Print version |
+| `--help` | Print usage |
+
+## Requirements
+
+- macOS (Apple Silicon or Intel)
+- Bash 3.2+ (ships with macOS)
+- `smartmontools` (optional, for SSD wear — `brew install smartmontools`)
+
+## Testing
+
+```bash
+bash test/ctscan_test.sh
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE)
