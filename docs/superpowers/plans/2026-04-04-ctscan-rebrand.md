@@ -1,0 +1,905 @@
+# ctscan Website Rebrand Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Rewrite `docs/index.html` with an Authentic macOS Dark aesthetic — system font stacks, genuine Terminal.app chrome, macOS system green, no external icon libraries or decorative effects.
+
+**Architecture:** Single-file rewrite of `docs/index.html`. Tailwind CDN for utility classes with a custom config. All styles in a `<style>` block. All JS inline at bottom. No build step, no dependencies beyond the Tailwind CDN script already in use.
+
+**Tech Stack:** HTML5, Tailwind CSS (CDN), vanilla JS, system font stacks only (`SF Mono`/`Menlo`/`Monaco` for terminal, `-apple-system`/`BlinkMacSystemFont` for UI)
+
+---
+
+## File Map
+
+| File | Action | Responsibility |
+|------|--------|---------------|
+| `docs/index.html` | **Rewrite** | Entire page — structure, styles, and JS |
+
+No other files touched.
+
+---
+
+### Task 1: Scaffold — head, Tailwind config, base CSS
+
+**Files:**
+- Modify: `docs/index.html` (full rewrite — replace everything)
+
+- [ ] **Step 1: Replace the entire file with the new scaffold**
+
+This sets up `<head>`, Tailwind config (new color tokens), and base `<style>`. The `<body>` is empty for now.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ctscan — macOS System Health</title>
+  <meta name="description" content="14 diagnostic checks for your Mac. Terminal-native. Zero friction. Install via Homebrew.">
+  <meta name="theme-color" content="#111113">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect width=%27100%27 height=%27100%27 fill=%27%23111113%27/><text x=%2750%27 y=%2758%27 text-anchor=%27middle%27 font-size=%2760%27 font-family=%27monospace%27 fill=%27%2328c840%27>$</text></svg>">
+  <meta property="og:title" content="ctscan — macOS System Health">
+  <meta property="og:description" content="14 diagnostic checks. Terminal-native. Zero friction.">
+  <meta property="og:type" content="website">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            term: ['SF Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+            ui:   ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+          },
+          colors: {
+            bg:      '#111113',
+            layer:   '#1a1a1c',
+            surface: { DEFAULT: '#1e1e1e', alt: '#2a2a2c' },
+            chrome:  '#3a3a3c',
+            muted:   '#636366',
+            subtle:  '#888',
+            body:    '#d4d4d4',
+            bright:  '#f2f2f7',
+            sysgreen: { DEFAULT: '#28c840', bg: '#28c84015' },
+            sysamber: '#febc2e',
+            sysred:   '#ff5f57',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* Smooth scroll */
+    html { scroll-behavior: smooth; }
+    body { scroll-padding-top: 3rem; }
+
+    /* Selection */
+    ::selection { background: rgba(40,200,64,0.15); color: #28c840; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #111113; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2c; border-radius: 0; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a3c; }
+
+    /* Terminal font shorthand */
+    .font-term { font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace; }
+    .font-ui   { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* Terminal color tokens */
+    .t-prompt { color: #28c840; }
+    .t-head   { color: #28c840; }
+    .t-ok     { color: #28c840; }
+    .t-warn   { color: #febc2e; }
+    .t-val    { color: #d4d4d4; }
+    .t-key    { color: #636366; }
+    .t-dim    { color: #636366; }
+    .t-cmd    { color: #e8e8e8; }
+
+    /* macOS terminal window */
+    .mac-window {
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08),
+        0 24px 64px rgba(0,0,0,0.55),
+        0 8px 20px rgba(0,0,0,0.35);
+    }
+    .mac-titlebar {
+      background: #3a3a3c;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-bottom: 1px solid #2a2a2c;
+    }
+    .mac-titlebar-title {
+      flex: 1;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 11px;
+      color: #888;
+      font-weight: 500;
+      /* compensate so title is visually centered over the full bar */
+      margin-right: 31px;
+    }
+    .tl { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .tl-r { background: #ff5f57; }
+    .tl-y { background: #febc2e; }
+    .tl-g { background: #28c840; }
+    .mac-body {
+      background: #1e1e1e;
+      font-family: 'SF Mono', Menlo, Monaco, 'Courier New', monospace;
+      font-size: 11.5px;
+      line-height: 1.65;
+      color: #d4d4d4;
+      padding: 14px 16px;
+    }
+
+    /* Cursor blink */
+    .cursor-blink {
+      display: inline-block;
+      width: 7px;
+      height: 1.1em;
+      background: #28c840;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Section tag (e.g. "about ────") */
+    .section-tag {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #28c840;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .section-tag::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #222;
+    }
+
+    /* Reveal animation */
+    .reveal {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.65s cubic-bezier(0.16,1,0.3,1), transform 0.65s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal:nth-child(2) { transition-delay: 80ms; }
+    .reveal:nth-child(3) { transition-delay: 160ms; }
+    .reveal:nth-child(4) { transition-delay: 240ms; }
+    .reveal:nth-child(5) { transition-delay: 320ms; }
+
+    /* Feature row */
+    .feature-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-top: 1px solid #1e1e1e;
+    }
+    .feature-icon {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 13px;
+      color: #28c840;
+      min-width: 18px;
+      margin-top: 1px;
+    }
+
+    /* Module table row */
+    .mod-row:hover td { background: #1a1a1a; }
+    .mod-row td:first-child { color: #28c840; }
+
+    /* Install block */
+    .install-block {
+      background: #1e1e1e;
+      border: 1px solid #2a2a2c;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 0.75rem;
+      transition: border-color 0.15s;
+    }
+    .install-block:hover { border-color: #3a3a3c; }
+    .install-header {
+      background: #1a1a1a;
+      border-bottom: 1px solid #2a2a2c;
+      padding: 7px 14px;
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #444;
+    }
+    .install-cmd {
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .copy-btn {
+      font-family: 'SF Mono', Menlo, monospace;
+      font-size: 10px;
+      color: #555;
+      border: 1px solid #2a2a2c;
+      background: #111113;
+      padding: 4px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: #888; border-color: #3a3a3c; }
+  </style>
+</head>
+
+<body class="bg-bg text-body antialiased font-ui">
+  <!-- sections go here -->
+</body>
+</html>
+```
+
+- [ ] **Step 2: Open `docs/index.html` in a browser and verify**
+
+Expected: dark `#111113` background, no content, no console errors, no font imports in Network tab.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "refactor: scaffold new head, Tailwind config, base styles"
+```
+
+---
+
+### Task 2: Navigation
+
+**Files:**
+- Modify: `docs/index.html` — replace `<!-- sections go here -->` comment with nav + placeholder
+
+- [ ] **Step 1: Add the nav inside `<body>`**
+
+```html
+<!-- Fixed Nav -->
+<nav class="fixed top-0 left-0 right-0 z-50 border-b border-[#222]"
+     style="background:rgba(17,17,19,0.92);backdrop-filter:blur(8px);">
+  <div class="max-w-3xl mx-auto px-6 flex items-center justify-between h-11">
+    <a href="#home" class="font-term font-bold text-bright text-sm tracking-tight">
+      ct<span class="text-sysgreen">$</span>
+    </a>
+    <div class="flex items-center gap-5 text-[11px] font-term">
+      <a href="#features" class="text-subtle hover:text-bright transition-colors">Features</a>
+      <a href="#modules"  class="text-subtle hover:text-bright transition-colors">Modules</a>
+      <a href="#install"  class="text-subtle hover:text-bright transition-colors">Install</a>
+      <a href="https://github.com/onur-tellioglu/ctscan"
+         class="text-subtle hover:text-bright transition-colors"
+         target="_blank" rel="noopener noreferrer">GitHub&nbsp;↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- spacer so content doesn't hide under nav -->
+<div class="h-11"></div>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+Expected: sticky nav at top, `ct$` logo with green `$`, four links visible, semi-transparent background.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: add nav — sticky macOS-style, system font stack"
+```
+
+---
+
+### Task 3: Hero section
+
+**Files:**
+- Modify: `docs/index.html` — add hero after the nav spacer div
+
+- [ ] **Step 1: Add the hero section**
+
+Insert after `<!-- spacer -->`:
+
+```html
+<!-- Hero -->
+<section id="home" class="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center">
+
+  <p class="font-term text-[10px] tracking-[0.14em] uppercase text-sysgreen mb-4 reveal">
+    macOS · Terminal-native · v0.3.8
+  </p>
+
+  <h1 class="font-ui font-bold text-bright leading-[1.05] tracking-[-0.03em] mb-4 reveal"
+      style="font-size:clamp(2rem,5vw,3.25rem);">
+    Your Mac's health,<br>in one command.
+  </h1>
+
+  <p class="text-subtle leading-relaxed max-w-sm mb-10 reveal" style="font-size:14px;">
+    14 diagnostic checks. Zero dependencies. Zero elevated privileges.
+    Results in under a second.
+  </p>
+
+  <!-- macOS Terminal window — hero crop -->
+  <div class="mac-window w-full max-w-[580px] mb-8 reveal">
+    <div class="mac-titlebar">
+      <span class="tl tl-r"></span>
+      <span class="tl tl-y"></span>
+      <span class="tl tl-g"></span>
+      <span class="mac-titlebar-title">ctscan — zsh — 80×24</span>
+    </div>
+    <div class="mac-body">
+      <div><span class="t-dim">Last login: Sat Apr  4 12:12:34 on ttys001</span></div>
+      <div><span class="t-prompt">onurtellioglu@Onur-MacBook-Pro</span> <span class="t-dim">ctscan %</span> <span class="t-cmd">ctscan</span></div>
+      <div>&nbsp;</div>
+      <div><span class="t-head">══ Identity ══</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Host:&nbsp;&nbsp; </span><span class="t-val">Onur MacBook Pro</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">macOS:&nbsp; </span><span class="t-val">26.4</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Uptime: </span><span class="t-val">1:30</span></div>
+      <div>&nbsp;</div>
+      <div><span class="t-head">══ Battery ══</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Charge: </span><span class="t-val">100% (charged)</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Health: </span><span class="t-val">99.5% | 6215 mAh | 78 cycles</span></div>
+      <div>&nbsp;</div>
+      <div><span class="t-head">══ Homebrew ══</span></div>
+      <div>&nbsp;&nbsp;<span class="t-warn">⚠ 1 package(s) outdated — run: brew upgrade</span></div>
+      <div>&nbsp;</div>
+      <div><span class="t-head">══ Security ══</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">FileVault is On.</span></div>
+      <div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">System Integrity Protection status: enabled.</span></div>
+      <div>&nbsp;</div>
+      <div>&nbsp;&nbsp;<span class="t-dim">ctscan 0.3.8</span></div>
+      <div><span class="t-prompt">onurtellioglu@Onur-MacBook-Pro</span> <span class="t-dim">ctscan %</span> <span class="cursor-blink"></span></div>
+    </div>
+  </div>
+
+  <!-- CTAs -->
+  <div class="flex flex-wrap gap-3 items-center justify-center mb-12 reveal">
+    <button
+      class="font-term text-[11px] font-semibold px-5 py-2.5 rounded-md bg-sysgreen text-black tracking-wide"
+      onclick="copyToClipboard(this,'brew tap onur-tellioglu/ctscan &amp;&amp; brew install ctscan')">
+      $ brew install ctscan
+    </button>
+    <a href="https://github.com/onur-tellioglu/ctscan"
+       target="_blank" rel="noopener noreferrer"
+       class="font-term text-[11px] px-5 py-2.5 rounded-md border border-[#333] text-subtle hover:text-bright hover:border-[#555] transition-colors">
+      View on GitHub&nbsp;↗
+    </a>
+  </div>
+
+  <!-- Stats strip -->
+  <div class="grid grid-cols-3 border-t border-[#222] max-w-sm w-full pt-6 reveal">
+    <div class="text-center">
+      <div class="font-term font-semibold text-bright text-2xl tracking-tight">14</div>
+      <div class="font-term text-[10px] text-muted mt-1">modules</div>
+    </div>
+    <div class="text-center border-l border-[#222]">
+      <div class="font-term font-semibold text-bright text-2xl tracking-tight">&lt;1<span class="text-sysgreen text-sm">s</span></div>
+      <div class="font-term text-[10px] text-muted mt-1">scan time</div>
+    </div>
+    <div class="text-center border-l border-[#222]">
+      <div class="font-term font-semibold text-bright text-2xl tracking-tight">0</div>
+      <div class="font-term text-[10px] text-muted mt-1">dependencies</div>
+    </div>
+  </div>
+
+</section>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+Expected: full-height hero, centred terminal window with macOS chrome (traffic lights, charcoal title bar, `#1e1e1e` body), green prompt and section headers, amber `⚠` warning, blinking cursor, green CTA button, ghost GitHub button, stats strip at bottom.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: hero section — macOS terminal window, CTAs, stats strip"
+```
+
+---
+
+### Task 4: About / Features section
+
+**Files:**
+- Modify: `docs/index.html` — append after `</section>` of hero
+
+- [ ] **Step 1: Add the about section**
+
+```html
+<!-- About / Features -->
+<section id="features" class="py-24 px-6" style="background:#111113;">
+  <div class="max-w-2xl mx-auto">
+
+    <div class="section-tag reveal">about</div>
+
+    <h2 class="font-ui font-bold text-bright leading-tight tracking-[-0.025em] mb-4 reveal"
+        style="font-size:clamp(1.5rem,3vw,2rem);">
+      No daemon. No GUI. No BS.
+    </h2>
+
+    <p class="text-subtle leading-relaxed max-w-xl mb-10 reveal" style="font-size:13px;">
+      ctscan runs 14 diagnostic checks from the terminal and gives you a clean,
+      color-coded report in less than a second. Battery health, memory pressure,
+      disk status, security posture, network signal, package manager hygiene —
+      all with a single command.
+    </p>
+
+    <div class="reveal">
+      <div class="feature-row">
+        <span class="feature-icon">⚡</span>
+        <div>
+          <p class="font-ui font-semibold text-bright text-sm mb-0.5">Instant</p>
+          <p class="font-ui text-muted leading-relaxed" style="font-size:12px;">
+            Full system scan in under a second. No background processes, no setup required.
+          </p>
+        </div>
+      </div>
+      <div class="feature-row">
+        <span class="feature-icon">⊘</span>
+        <div>
+          <p class="font-ui font-semibold text-bright text-sm mb-0.5">Zero privileges</p>
+          <p class="font-ui text-muted leading-relaxed" style="font-size:12px;">
+            Runs with standard user permissions. No root access, no launch daemons installed.
+          </p>
+        </div>
+      </div>
+      <div class="feature-row">
+        <span class="feature-icon">≡</span>
+        <div>
+          <p class="font-ui font-semibold text-bright text-sm mb-0.5">14 modules</p>
+          <p class="font-ui text-muted leading-relaxed" style="font-size:12px;">
+            Battery, CPU, memory, disk, security, network, packages, backups — and more.
+            Skip what you don't need.
+          </p>
+        </div>
+      </div>
+      <div class="feature-row">
+        <span class="feature-icon">|</span>
+        <div>
+          <p class="font-ui font-semibold text-bright text-sm mb-0.5">Pipe-friendly</p>
+          <p class="font-ui text-muted leading-relaxed" style="font-size:12px;">
+            Color output with
+            <code class="font-term text-[11px] bg-surface px-1 py-0.5 rounded text-muted">--no-color</code>
+            fallback. Parse and log with
+            <code class="font-term text-[11px] bg-surface px-1 py-0.5 rounded text-muted">--quiet</code>.
+          </p>
+        </div>
+      </div>
+      <div class="feature-row">
+        <span class="feature-icon">↓</span>
+        <div>
+          <p class="font-ui font-semibold text-bright text-sm mb-0.5">Homebrew install</p>
+          <p class="font-ui text-muted leading-relaxed" style="font-size:12px;">
+            One command to install. Updates flow through your standard
+            <code class="font-term text-[11px] bg-surface px-1 py-0.5 rounded text-muted">brew upgrade</code>
+            workflow.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+Expected: dark `#111113` bg, green `about` section tag with extending line, feature rows with unicode icons, no cards, separated by `#1e1e1e` borders.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: about/features section — feature rows, no cards"
+```
+
+---
+
+### Task 5: Full output preview section
+
+**Files:**
+- Modify: `docs/index.html` — append after features section
+
+- [ ] **Step 1: Add the preview section with verbatim output**
+
+```html
+<!-- Full Output Preview -->
+<section class="py-24 px-6" style="background:#111113;">
+  <div class="max-w-2xl mx-auto">
+
+    <div class="section-tag reveal">preview</div>
+
+    <div class="mac-window reveal">
+      <div class="mac-titlebar">
+        <span class="tl tl-r"></span>
+        <span class="tl tl-y"></span>
+        <span class="tl tl-g"></span>
+        <span class="mac-titlebar-title">ctscan — full output</span>
+      </div>
+      <div class="mac-body overflow-x-auto" style="font-size:11px;max-height:440px;overflow-y:auto;">
+<div><span class="t-dim">Last login: Sat Apr  4 12:12:34 on ttys001</span></div>
+<div><span class="t-prompt">onurtellioglu@Onur-MacBook-Pro</span> <span class="t-dim">ctscan %</span> <span class="t-cmd">ctscan</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Identity ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Host:&nbsp;&nbsp; </span><span class="t-val">Onur MacBook Pro</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Model:&nbsp; </span><span class="t-val">MacBook Pro</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">macOS:&nbsp; </span><span class="t-val">26.4</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Uptime: </span><span class="t-val">1:30</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Load:&nbsp;&nbsp; </span><span class="t-val">1.59 1.57 1.59</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-key">Users:&nbsp; </span><span class="t-val">3 session(s)</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp; <span class="t-dim">onurtellioglu&nbsp;&nbsp;&nbsp;&nbsp;console&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apr  4 10:44</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp; <span class="t-dim">onurtellioglu&nbsp;&nbsp;&nbsp;&nbsp;ttys000&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apr  4 12:13</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp; <span class="t-dim">onurtellioglu&nbsp;&nbsp;&nbsp;&nbsp;ttys001&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Apr  4 12:12</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Homebrew ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-warn">⚠ 1 package(s) outdated — run: brew upgrade</span></div>
+<div>&nbsp;</div>
+<div>&nbsp;&nbsp;<span class="t-dim">Formulae (leaves):</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">antoniorodr/memo/memo bash cocoapods ffmpeg gh</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">graphviz onur-tellioglu/ctscan/ctscan openjdk@17 poppler progress</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">python@3.11 smartmontools sox steipete/tap/remindctl steipete/tap/summarize</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">wimlib xcodegen yt-dlp</span></div>
+<div>&nbsp;</div>
+<div>&nbsp;&nbsp;<span class="t-dim">Casks:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">alt-tab android-platform-tools balenaetcher boring-notch docker-desktop</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">flutter hammerspoon karabiner-elements keyclu latest</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">ngrok raycast the-unarchiver</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Launch Agents &amp; Daemons ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-dim">/Users/onurtellioglu/Library/LaunchAgents:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">com.google.GoogleUpdater.wake.plist</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">com.google.keystone.agent.plist</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">com.google.keystone.xpcservice.plist</span></div>
+<div>&nbsp;&nbsp;<span class="t-dim">/Library/LaunchAgents:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">(empty)</span></div>
+<div>&nbsp;&nbsp;<span class="t-dim">/Library/LaunchDaemons:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">com.docker.socket.plist</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">com.docker.vmnetd.plist</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">com.nordvpn.macos.helper.plist</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Storage ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Disk: 13G used / 494G total (5% full)</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">301M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Caches/com.apple.textunderstandingd</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">261M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Caches/SiriTTS</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">215M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Caches/Google</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">&nbsp;79M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Caches/GeoServices</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">&nbsp;75M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Caches/com.apple.Music</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">&nbsp;12G&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Application Support/Claude</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">4.9G&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Application Support/Google</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">1.5G&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Application Support/Code</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">985M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Application Support/ModrinthApp</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">458M&nbsp;&nbsp;&nbsp;&nbsp;/Users/onurtellioglu/Library/Application Support/discord</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ SSD Wear ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Percentage Used:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1%</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Data Units Written:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;51,126,459 [26.1 TB]</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Battery ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Charge:&nbsp;&nbsp;100% (charged)</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Health:&nbsp;&nbsp;99.5% | 6215 mAh real / 6249 mAh design | 78 cycles</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Thermal &amp; GPU ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-ok">✓ No thermal throttling detected</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">GPU Activity Check:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-dim">Vendor: Apple (0x106b)</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Memory ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Pageouts: 7002</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">System-wide memory free percentage: 83%</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Swap:&nbsp;&nbsp;&nbsp;&nbsp;0.00M used / 0.00M total (encrypted)</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Processes ══</span></div>
+<div>&nbsp;</div>
+<div>&nbsp;&nbsp;<span class="t-dim">Top by CPU:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp;<span class="t-val">21.7%&nbsp;&nbsp;airportd</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp;<span class="t-val">15.1%&nbsp;&nbsp;WindowServer</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp;<span class="t-val">10.3%&nbsp;&nbsp;WiFiAgent</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp;&nbsp;<span class="t-val">3.7%&nbsp;&nbsp;claude</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span>&nbsp;&nbsp;&nbsp;<span class="t-val">3.5%&nbsp;&nbsp;ControlCenter</span></div>
+<div>&nbsp;</div>
+<div>&nbsp;&nbsp;<span class="t-dim">Top by Memory:</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">536M&nbsp;&nbsp;&nbsp;&nbsp;WhatsApp</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">456M&nbsp;&nbsp;&nbsp;&nbsp;claude</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">377M&nbsp;&nbsp;&nbsp;&nbsp;Google</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">324M&nbsp;&nbsp;&nbsp;&nbsp;Google</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">287M&nbsp;&nbsp;&nbsp;&nbsp;Google</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Docker ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-dim">Docker not running</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Time Machine ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Last backup: unknown</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Status: idle</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Updates ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-ok">✓ No updates available</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Wi-Fi ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">SSID:&nbsp;&nbsp;&nbsp;&nbsp;&lt;redacted&gt;</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">Signal:&nbsp;&nbsp;-52 dBm / Noise: -93 dBm</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">TX Rate: 960 Mbps</span></div>
+<div>&nbsp;</div>
+<div><span class="t-head">══ Security ══</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">FileVault is On.</span></div>
+<div>&nbsp;&nbsp;<span class="t-key">·</span> <span class="t-val">System Integrity Protection status: enabled.</span></div>
+<div>&nbsp;</div>
+<div>&nbsp;&nbsp;<span class="t-dim">ctscan 0.3.8</span></div>
+<div><span class="t-prompt">onurtellioglu@Onur-MacBook-Pro</span> <span class="t-dim">ctscan %</span></div>
+      </div><!-- mac-body -->
+    </div><!-- mac-window -->
+
+  </div>
+</section>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+Expected: macOS terminal window with full verbatim output, scrollable to max 440px height, all 14 sections present, colors correct (green headers, amber warning, green ✓, dim secondary info).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: full output preview — verbatim real ctscan run"
+```
+
+---
+
+### Task 6: Modules table
+
+**Files:**
+- Modify: `docs/index.html` — append after preview section
+
+- [ ] **Step 1: Add modules section**
+
+```html
+<!-- Modules -->
+<section id="modules" class="py-24 px-6 bg-bg">
+  <div class="max-w-2xl mx-auto">
+
+    <div class="section-tag reveal">modules</div>
+    <h2 class="font-ui font-bold text-bright tracking-[-0.025em] mb-8 reveal"
+        style="font-size:clamp(1.25rem,2.5vw,1.6rem);">All 14 checks</h2>
+
+    <div class="reveal border border-[#1e1e1e] overflow-x-auto">
+      <table class="w-full font-term text-[11px]">
+        <thead>
+          <tr class="border-b border-[#1e1e1e]">
+            <th class="text-left py-3 px-4 text-muted font-semibold text-[9px] tracking-[0.12em] uppercase">Module</th>
+            <th class="text-left py-3 px-4 text-muted font-semibold text-[9px] tracking-[0.12em] uppercase">Checks</th>
+            <th class="text-left py-3 px-4 text-muted font-semibold text-[9px] tracking-[0.12em] uppercase hidden sm:table-cell">Triggers</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#1a1a1a]">
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">identity</td><td class="py-3 px-4 text-muted">Hostname, model, macOS, uptime</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">brew</td><td class="py-3 px-4 text-muted">Formula/cask counts, outdated</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Outdated packages</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">agents</td><td class="py-3 px-4 text-muted">Launch agents &amp; daemon counts</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">storage</td><td class="py-3 px-4 text-muted">Disk usage, cache size</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Disk nearly full</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">ssd</td><td class="py-3 px-4 text-muted">SSD wear level (smartmontools)</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High wear level</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">battery</td><td class="py-3 px-4 text-muted">Health %, cycles, charge</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Low health / high cycles</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">thermal</td><td class="py-3 px-4 text-muted">Throttling, GPU model</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Throttling detected</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">memory</td><td class="py-3 px-4 text-muted">Swap, free %, RAM</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High swap / low memory</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">processes</td><td class="py-3 px-4 text-muted">Top 5 by CPU and memory</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Process &gt;80% CPU</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">docker</td><td class="py-3 px-4 text-muted">Containers, disk usage</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">timemachine</td><td class="py-3 px-4 text-muted">Backup age, status</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Backup &gt;24h old</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">updates</td><td class="py-3 px-4 text-muted">Pending macOS updates</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Updates available</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">wifi</td><td class="py-3 px-4 text-muted">Signal dBm, network</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Weak signal</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">security</td><td class="py-3 px-4 text-muted">FileVault, SIP, Gatekeeper</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Any disabled</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+Expected: 14 rows, module names in green, hover turns row to `#1a1a1a`, Triggers column hidden on mobile.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: modules table — 14 checks, SF Mono, hover states"
+```
+
+---
+
+### Task 7: Install section + footer
+
+**Files:**
+- Modify: `docs/index.html` — append after modules section
+
+- [ ] **Step 1: Add install section and footer**
+
+```html
+<!-- Install -->
+<section id="install" class="py-24 px-6" style="background:#111113;">
+  <div class="max-w-2xl mx-auto">
+
+    <div class="section-tag reveal">install</div>
+    <h2 class="font-ui font-bold text-bright tracking-[-0.025em] mb-8 reveal"
+        style="font-size:clamp(1.25rem,2.5vw,1.6rem);">Get started</h2>
+
+    <div class="reveal">
+      <div class="install-block">
+        <div class="install-header">via Homebrew</div>
+        <div class="install-cmd">
+          <code class="font-term text-[12px] text-bright">brew tap onur-tellioglu/ctscan &amp;&amp; brew install ctscan</code>
+          <button class="copy-btn" onclick="copyToClipboard(this,'brew tap onur-tellioglu/ctscan && brew install ctscan')">⌘ Copy</button>
+        </div>
+      </div>
+
+      <div class="install-block">
+        <div class="install-header">via Git</div>
+        <div class="install-cmd">
+          <code class="font-term text-[12px] text-muted">git clone https://github.com/onur-tellioglu/ctscan</code>
+          <button class="copy-btn" onclick="copyToClipboard(this,'git clone https://github.com/onur-tellioglu/ctscan')">⌘ Copy</button>
+        </div>
+      </div>
+
+      <p class="font-term text-[10px] text-[#444] mt-5 leading-relaxed">
+        Requires: macOS · Bash 3.2+ ·
+        <code class="text-[#555]">smartmontools</code> optional — SSD wear only
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="py-12 px-6 border-t border-[#1e1e1e]">
+  <div class="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+    <p class="font-term text-[10px] text-[#444]">
+      MIT License ·
+      <a href="https://github.com/onur-tellioglu/ctscan"
+         class="text-[#555] hover:text-subtle transition-colors"
+         target="_blank" rel="noopener noreferrer">onur-tellioglu/ctscan</a>
+    </p>
+    <div class="flex items-center gap-4">
+      <a href="https://github.com/onur-tellioglu/ctscan"
+         class="font-term text-[10px] text-[#444] hover:text-subtle transition-colors"
+         target="_blank" rel="noopener noreferrer">GitHub</a>
+      <span class="text-[#2a2a2c]">·</span>
+      <a href="https://github.com/onur-tellioglu/ctscan/issues"
+         class="font-term text-[10px] text-[#444] hover:text-subtle transition-colors"
+         target="_blank" rel="noopener noreferrer">Report Issue</a>
+    </div>
+  </div>
+</footer>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+Expected: two install blocks with dark headers, copy buttons, requirements note, footer with MIT license and links.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: install section and footer"
+```
+
+---
+
+### Task 8: JavaScript — copy-to-clipboard + IntersectionObserver + cursor
+
+**Files:**
+- Modify: `docs/index.html` — add `<script>` block before `</body>`
+
+- [ ] **Step 1: Add the script block**
+
+```html
+<script>
+  // Copy to clipboard with visual feedback
+  function copyToClipboard(btn, text) {
+    const original = btn.innerHTML;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerHTML = '<span style="color:#28c840;">✓ Copied</span>';
+      setTimeout(() => { btn.innerHTML = original; }, 2000);
+    }).catch(() => {
+      // Fallback for non-HTTPS
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.innerHTML = '<span style="color:#28c840;">✓ Copied</span>';
+      setTimeout(() => { btn.innerHTML = original; }, 2000);
+    });
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -32px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+```
+
+- [ ] **Step 2: Verify in browser**
+
+- Click the "$ brew install ctscan" hero button — clipboard should receive the brew command, button text changes to green "✓ Copied", reverts after 2s.
+- Click "⌘ Copy" on both install blocks — same feedback.
+- Scroll down — sections fade in from below.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/index.html
+git commit -m "feat: copy-to-clipboard, scroll reveal, cursor blink JS"
+```
+
+---
+
+### Task 9: Final review pass
+
+**Files:**
+- Modify: `docs/index.html` — visual QA fixes only
+
+- [ ] **Step 1: Open the page at full width (1280px) and check**
+
+Checklist:
+- [ ] No Google Fonts requests in Network tab
+- [ ] No Phosphor Icons CDN request in Network tab
+- [ ] Background is `#111113`, not `#080808`
+- [ ] Accent color is `#28c840`, not `#33ff4d` anywhere
+- [ ] No scanlines, noise, or glow effects visible
+- [ ] Nav is sticky and blurs on scroll
+- [ ] Hero terminal window has correct macOS chrome (10px border-radius, `#3a3a3c` titlebar)
+- [ ] Blinking cursor visible at hero terminal end
+- [ ] All 4 hero CTA / stats elements visible
+- [ ] About section tag line extends to right edge
+- [ ] Preview terminal scrolls vertically, shows all 14 sections
+- [ ] Modules table: 14 rows, green module names, hover works
+- [ ] Both install blocks copy correctly
+- [ ] Footer links open in new tab
+
+- [ ] **Step 2: Check at 375px (mobile)**
+
+Checklist:
+- [ ] Nav links don't overflow
+- [ ] Hero terminal window doesn't cause horizontal scroll
+- [ ] Modules table Triggers column hidden
+- [ ] Install commands wrap or scroll horizontally within block
+
+- [ ] **Step 3: Fix any issues found, then commit**
+
+```bash
+git add docs/index.html
+git commit -m "fix: visual QA pass — spacing, mobile, color corrections"
+```
+
+---
+
+### Task 10: Final commit
+
+- [ ] **Step 1: Verify the live page renders correctly at https://onur-tellioglu.github.io/ctscan after pushing**
+
+```bash
+git push origin main
+```
+
+Expected: GitHub Pages rebuilds and the live site matches the mockup.
