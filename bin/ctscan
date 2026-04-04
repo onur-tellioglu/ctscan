@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.3.7"
+VERSION="0.3.8"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -46,7 +46,21 @@ check_identity() {
   print_info "Host:    $hostname"
   [[ -n "$model" ]] && print_info "Model:   $model"
   print_info "macOS:   $os_ver"
-  print_info "$(uptime)"
+
+  local uptime_raw uptime_dur load_avg
+  uptime_raw=$(uptime)
+  uptime_dur=$(echo "$uptime_raw" | awk -F'up ' '{print $2}' | awk -F',' '{print $1}' | xargs)
+  load_avg=$(echo "$uptime_raw" | awk -F'load averages:' '{print $2}' | xargs)
+  print_info "Uptime:  $uptime_dur"
+  [[ -n "$load_avg" ]] && print_info "Load:    $load_avg"
+
+  local who_out user_count
+  who_out=$(who 2>/dev/null)
+  user_count=$(echo "$who_out" | grep -c .)
+  if [[ "$user_count" -gt 0 ]]; then
+    print_info "Users:   $user_count session(s)"
+    echo "$who_out" | while IFS= read -r line; do print_info "  $line"; done
+  fi
 }
 
 # ──────────────────────────────────────────────
@@ -198,7 +212,7 @@ check_battery() {
   # Precise health: FccComp1 / DesignCapacity
   local health_pct=""
   if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
-    health_pct=$(awk -v f="$fcc_cap" -v d="$design_cap" 'BEGIN{printf "%.4f", f/d*100}')
+    health_pct=$(awk -v f="$fcc_cap" -v d="$design_cap" 'BEGIN{printf "%.1f", f/d*100}')
     local health_int=${health_pct%.*}
     if [[ "${health_int:-100}" -lt 80 ]]; then
       print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
@@ -211,13 +225,15 @@ check_battery() {
 
   $QUIET && return
 
-  # Match original order: pmset line → mAh → health
-  pmset -g batt 2>/dev/null | grep -v "Now drawing" | while IFS= read -r line; do
-    [[ -n "$line" ]] && print_info "$line"
-  done
+  local batt_line charge_pct charge_state time_remain
+  batt_line=$(pmset -g batt 2>/dev/null | grep -v "Now drawing" | grep '%')
+  charge_pct=$(echo "$batt_line" | grep -oE '[0-9]+%' | head -1)
+  charge_state=$(echo "$batt_line" | awk -F';' '{gsub(/^[[:space:]]+/,"",$2); print $2}' | xargs)
+  time_remain=$(echo "$batt_line" | awk -F';' '{match($3,/[0-9]+:[0-9]+/); print substr($3,RSTART,RLENGTH)}' | xargs)
+  [[ "$time_remain" == "0:00" ]] && time_remain=""
+  [[ -n "$charge_pct" ]]   && print_info "Charge:  ${charge_pct} (${charge_state}${time_remain:+, $time_remain})"
   [[ -n "$design_cap" && -n "$fcc_cap" ]] && \
-    print_info "Design: ${design_cap} mAh | Real Max: ${fcc_cap} mAh | Cycles: ${cycles}"
-  [[ -n "$health_pct" ]] && print_info "Calculated Physical Health: ${health_pct}%"
+    print_info "Health:  ${health_pct:----}% | ${fcc_cap} mAh real / ${design_cap} mAh design | ${cycles} cycles"
 }
 
 # ──────────────────────────────────────────────
@@ -243,8 +259,8 @@ check_thermal() {
 
   $QUIET && return
 
-  # Raw pmset therm output
-  echo "$therm_out" | grep -v '^$' | while IFS= read -r line; do print_info "$line"; done
+  # Speed limits (filter noisy "Note:" lines)
+  echo "$therm_out" | grep -v '^$' | grep -v '^Note:' | while IFS= read -r line; do print_info "$line"; done
 
   print_info "GPU Activity Check:"
   if [[ -n "${_SP_DISPLAYS:-}" ]]; then
@@ -275,9 +291,16 @@ check_memory() {
 
   $QUIET && return
 
-  # Raw memory_pressure output (preserves blank line between pageouts and free%)
-  memory_pressure 2>/dev/null | tail -3 | while IFS= read -r line; do print_info "$line"; done
-  print_info "$swap_out"
+  memory_pressure 2>/dev/null | tail -3 | while IFS= read -r line; do
+    [[ -n "$line" ]] && print_info "$line"
+  done
+
+  local swap_total swap_used_disp swap_free encrypted_tag
+  swap_total=$(echo "$swap_out"     | awk -F'total = ' '{split($2,a," "); print a[1]}')
+  swap_used_disp=$(echo "$swap_out" | awk -F'used = '  '{split($2,a," "); print a[1]}')
+  swap_free=$(echo "$swap_out"      | awk -F'free = '  '{split($2,a," "); print a[1]}')
+  [[ "$swap_out" == *"encrypted"* ]] && encrypted_tag=" (encrypted)"
+  print_info "Swap:    ${swap_used_disp:-?} used / ${swap_total:-?} total${encrypted_tag:-}"
 }
 
 # ──────────────────────────────────────────────
@@ -488,10 +511,14 @@ check_wifi() {
 
   $QUIET && return
 
-  # Single "Signal Info: ..." line matching original format
-  local info_line
-  info_line=$(echo "$wifi_out" | grep -E "Locale|Signal / Noise|Transmit Rate" | xargs echo)
-  [[ -n "$info_line" ]] && print_info "Signal Info: $info_line"
+  local ssid noise_dbm txrate
+  ssid=$(echo "$wifi_out" | awk '/Current Network Information:/{getline; gsub(/^[[:space:]]+|:[[:space:]]*$/,"",$0); if (length($0)>0) {print; exit}}')
+  noise_dbm=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1 | grep -oE '\-[0-9]+ dBm' | tail -1 | grep -oE '\-[0-9]+')
+  txrate=$(echo "$wifi_out" | grep -i "Transmit Rate" | head -1 | awk -F': ' '{print $2}' | xargs)
+
+  [[ -n "$ssid" ]]       && print_info "SSID:    $ssid"
+  [[ -n "$signal_dbm" ]] && print_info "Signal:  ${signal_dbm} dBm / Noise: ${noise_dbm} dBm"
+  [[ -n "$txrate" ]]     && print_info "TX Rate: ${txrate} Mbps"
 }
 
 # ──────────────────────────────────────────────
