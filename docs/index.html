@@ -3,188 +3,411 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ctscan - macOS System Health Scanner</title>
-  <meta name="description" content="A lightweight macOS system health scanner for the terminal. 14 diagnostic checks, zero friction. Install via Homebrew.">
-  <meta name="theme-color" content="#0A0A0A">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬛</text></svg>">
-  <meta property="og:title" content="ctscan - macOS System Health Scanner">
+  <title>ctscan — macOS System Health</title>
+  <meta name="description" content="14 diagnostic checks for your Mac. Terminal-native. Zero friction. Install via Homebrew.">
+  <meta name="theme-color" content="#080808">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27><rect width=%27100%27 height=%27100%27 fill=%27%23080808%27/><text x=%2750%27 y=%2758%27 text-anchor=%27middle%27 font-size=%2760%27 font-family=%27monospace%27 fill=%27%2333ff4d%27>$</text></svg>">
+  <meta property="og:title" content="ctscan — macOS System Health">
   <meta property="og:description" content="14 diagnostic checks. Terminal-native. Zero friction.">
   <meta property="og:type" content="website">
-  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@latest" />
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            green: { terminal: '#27C93F' },
-            yellow: { terminal: '#FFBD2E' },
-            bg: '#0A0A0A',
-            surface: { DEFAULT: '#111111', light: '#1A1A1A', lighter: '#2D2D2D' },
-            muted: '#888888',
-            body: '#E0E0E0',
-          },
           fontFamily: {
-            mono: ['SF Mono', 'Fira Code', 'Fira Code', 'Cascadia Code', 'monospace'],
+            display: ['Space Mono', 'monospace'],
+            code: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            bg: '#080808',
+            layer: '#0e0e0e',
+            surface: { DEFAULT: '#141414', light: '#1a1a1a', lighter: '#252525' },
+            muted: '#5a5a5a',
+            subtle: '#7a7a7a',
+            body: '#c8c8c8',
+            bright: '#e8e8e8',
+            phosphor: { DEFAULT: '#33ff4d', dim: '#25cc3a', glow: '#33ff4d30' },
+            amber: { DEFAULT: '#ffb800', dim: '#cc9300' },
+            red: { DEFAULT: '#ff4444' },
+            blue: { DEFAULT: '#4dabff' },
           },
         },
       },
     };
   </script>
+  <style>
+    /* Base noise texture overlay via CSS */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 9999;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+    }
+
+    /* Scanline effect for terminal section */
+    .scanlines {
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+    }
+
+    /* Glow utility */
+    .glow-phosphor { text-shadow: 0 0 20px rgba(51,255,77,0.3), 0 0 40px rgba(51,255,77,0.1); }
+    .glow-amber { text-shadow: 0 0 20px rgba(255,184,0,0.3), 0 0 40px rgba(255,184,0,0.1); }
+
+    /* Reveal animation */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Stagger children */
+    .stagger-children .reveal:nth-child(1) { transition-delay: 0ms; }
+    .stagger-children .reveal:nth-child(2) { transition-delay: 80ms; }
+    .stagger-children .reveal:nth-child(3) { transition-delay: 160ms; }
+    .stagger-children .reveal:nth-child(4) { transition-delay: 240ms; }
+    .stagger-children .reveal:nth-child(5) { transition-delay: 320ms; }
+    .stagger-children .reveal:nth-child(6) { transition-delay: 400ms; }
+    .stagger-children .reveal:nth-child(7) { transition-delay: 480ms; }
+
+    /* Cursor blink */
+    .cursor-blink::after {
+      content: '█';
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* Terminal typing cursor */
+    .typing-cursor::after {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 1.1em;
+      background: #33ff4d;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+
+    /* Divider line with label */
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #5a5a5a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 2rem;
+    }
+    .section-label::before,
+    .section-label::after {
+      content: '';
+      height: 1px;
+      background: #252525;
+      flex: 1;
+    }
+    .section-label::before {
+      background: linear-gradient(90deg, #33ff4d30, #252525);
+    }
+    .section-label::after {
+      background: #252525;
+    }
+
+    /* Smooth scroll & nav offset */
+    html { scroll-behavior: smooth; }
+    body { scroll-padding-top: 3.5rem; }
+
+    /* Selection color */
+    ::selection {
+      background: rgba(51, 255, 77, 0.15);
+      color: #33ff4d;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080808; }
+    ::-webkit-scrollbar-thumb { background: #252525; border-radius: 0; }
+    ::-webkit-scrollbar-thumb:hover { background: #33ff4d40; }
+
+    /* Nav active dot indicator */
+    .nav-link {
+      position: relative;
+    }
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 0;
+      height: 0;
+      background: #33ff4d;
+      transition: width 0.2s ease;
+    }
+    .nav-link::before {
+      /* dot indicator — shown via JS */
+    }
+
+    /* Feature strip — horizontal layout */
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+    @media (max-width: 768px) { .feature-grid { grid-template-columns: repeat(1, 1fr); } }
+
+    /* Module table row active border */
+    .module-row td:first-child {
+      position: relative;
+      padding-left: 1rem;
+    }
+    .module-row td:first-child::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: transparent;
+      transition: background 0.2s ease;
+    }
+    .module-row:hover td:first-child::before {
+      background: #33ff4d;
+    }
+
+  </style>
 </head>
-<body class="bg-bg text-body antialiased scroll-smooth">
-  <!-- Top Nav -->
-  <nav class="fixed top-0 left-0 right-0 z-50 bg-bg/80 backdrop-blur-sm border-b border-surface-lighter">
-    <div class="max-w-4xl mx-auto px-4 flex items-center justify-between h-12 text-sm">
-      <a href="#home" class="font-mono font-bold text-white">ctscan</a>
-      <div class="flex items-center gap-4">
-        <a href="#modules" class="text-muted hover:text-white transition-colors">Modules</a>
-        <a href="#install" class="text-muted hover:text-white transition-colors">Install</a>
-        <a href="https://github.com/onurtellioglu/ctscan" class="text-muted hover:text-white transition-colors" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><i class="ph ph-github-logo"></i></a>
+
+<body class="bg-bg text-body antialiased font-code">
+
+  <!-- Fixed Nav -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-bg/90">
+    <div class="max-w-3xl mx-auto px-6 flex items-center justify-between h-14 text-xs font-code tracking-wide">
+      <a href="#home" class="font-display font-bold text-bright text-sm">ct<span class="text-phosphor">$</span></a>
+      <div class="flex items-center gap-6">
+        <a href="#features" class="text-muted hover:text-bright transition-colors">Features</a>
+        <a href="#modules" class="text-muted hover:text-bright transition-colors">Modules</a>
+        <a href="#install" class="text-muted hover:text-bright transition-colors">Install</a>
+        <a href="https://github.com/onur-tellioglu/ctscan" class="text-muted hover:text-bright transition-colors" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><i class="ph ph-github-logo text-sm"></i></a>
       </div>
     </div>
   </nav>
 
   <!-- Hero -->
-  <section id="home" class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
-    <div class="text-center">
-      <h1 class="text-6xl md:text-8xl font-bold font-mono tracking-tight text-white">ctscan</h1>
-      <p class="mt-4 text-lg md:text-xl text-muted max-w-xl mx-auto">
-        macOS system health. Terminal-native. 14 checks, zero friction.
+  <section id="home" class="min-h-screen flex flex-col items-center justify-center px-6 relative">
+    <div class="text-center max-w-2xl">
+      <h1 class="text-7xl sm:text-8xl md:text-9xl font-display font-bold text-bright leading-none tracking-tighter">ct<span class="text-phosphor">$</span></h1>
+      <p class="mt-6 text-base md:text-lg text-subtle max-w-md mx-auto leading-relaxed">
+        Terminal-native system health diagnostics for macOS. 14 checks, zero friction, instant results.
       </p>
-      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <button class="bg-white text-bg font-semibold px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer" onclick="copyToClipboard(this, 'brew install ctscan')">
-          <i class="ph ph-package mr-2"></i>Install via Brew
+
+      <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <button class="group font-display text-xs font-bold tracking-wider px-8 py-3.5 bg-phosphor/90 text-bg hover:bg-phosphor transition-colors cursor-pointer flex items-center gap-2" onclick="copyToClipboard(this, 'brew install ctscan')" style="box-shadow: 0 0 30px rgba(51,255,77,0.15);">
+          <i class="ph-bold ph-download-simple"></i>
+          INSTALL
         </button>
-        <a href="https://github.com/onurtellioglu/ctscan" target="_blank" rel="noopener noreferrer" class="border border-surface-lighter text-body px-6 py-3 rounded-lg hover:bg-surface-light transition-colors inline-flex items-center">
-          <i class="ph ph-github-logo mr-2"></i>on GitHub
+        <a href="https://github.com/onur-tellioglu/ctscan" target="_blank" rel="noopener noreferrer" class="group font-display text-xs font-bold tracking-wider px-8 py-3.5 text-muted border border-surface-lighter hover:text-phosphor hover:border-phosphor/40 transition-colors inline-flex items-center gap-2">
+          <i class="ph ph-github-logo"></i>
+          SOURCE
         </a>
       </div>
-    </div>
-  </section>
 
-  <!-- What is ctscan -->
-  <section class="py-24 px-4">
-    <div class="max-w-2xl mx-auto text-center">
-      <p class="text-xs uppercase tracking-widest text-muted mb-4">About</p>
-      <h2 class="text-3xl font-bold text-white mb-6">What is ctscan?</h2>
-      <p class="text-muted text-lg leading-relaxed">
-        ctscan is a lightweight macOS health scanner that runs 14 diagnostic checks from the terminal — battery, memory, storage, security, network, and more.
-        No daemon, no GUI, no background processes. Just run it and get a clean, color-coded report in seconds.
-        Ships with Homebrew, requires only Bash.
-      </p>
-    </div>
-  </section>
-
-  <!-- Features Grid -->
-  <section class="py-16 px-4">
-    <div class="max-w-4xl mx-auto">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div class="bg-surface border border-surface-lighter rounded-xl p-6 text-center hover:border-green-terminal/30 transition-colors">
-          <i class="ph-duotone ph-lightning text-4xl text-green-terminal mb-3"></i>
-          <h3 class="text-white font-semibold mb-1">Instant</h3>
-          <p class="text-muted text-sm">Runs in under a second</p>
+      <!-- Quick stats row -->
+      <div class="mt-16 grid grid-cols-3 gap-0 text-center">
+        <div class="border-t border-surface-lighter pt-4">
+          <div class="text-2xl font-display font-bold text-bright">14</div>
+          <div class="text-xs text-muted mt-1">modules</div>
         </div>
-        <div class="bg-surface border border-surface-lighter rounded-xl p-6 text-center hover:border-green-terminal/30 transition-colors">
-          <i class="ph-duotone ph-shield-check text-4xl text-green-terminal mb-3"></i>
-          <h3 class="text-white font-semibold mb-1">Zero Privileges</h3>
-          <p class="text-muted text-sm">No root, no daemons</p>
+        <div class="border-t border-l border-surface-lighter pt-4">
+          <div class="text-2xl font-display font-bold text-bright">&lt;1<span class="text-phosphor text-sm">s</span></div>
+          <div class="text-xs text-muted mt-1">scan time</div>
         </div>
-        <div class="bg-surface border border-surface-lighter rounded-xl p-6 text-center hover:border-green-terminal/30 transition-colors">
-          <i class="ph-duotone ph-list-checks text-4xl text-green-terminal mb-3"></i>
-          <h3 class="text-white font-semibold mb-1">14 Modules</h3>
-          <p class="text-muted text-sm">Modular, pipe-friendly output</p>
-        </div>
-        <div class="bg-surface border border-surface-lighter rounded-xl p-6 text-center hover:border-green-terminal/30 transition-colors">
-          <i class="ph-duotone ph-lock-key text-4xl text-green-terminal mb-3"></i>
-          <h3 class="text-white font-semibold mb-1">Security Checks</h3>
-          <p class="text-muted text-sm">FileVault, SIP, Gatekeeper</p>
-        </div>
-        <div class="bg-surface border border-surface-lighter rounded-xl p-6 text-center hover:border-green-terminal/30 transition-colors">
-          <i class="ph-duotone ph-battery-charging text-4xl text-green-terminal mb-3"></i>
-          <h3 class="text-white font-semibold mb-1">Battery Health</h3>
-          <p class="text-muted text-sm">Cycles, wear, charge</p>
-        </div>
-        <div class="bg-surface border border-surface-lighter rounded-xl p-6 text-center hover:border-green-terminal/30 transition-colors">
-          <i class="ph-duotone ph-package text-4xl text-green-terminal mb-3"></i>
-          <h3 class="text-white font-semibold mb-1">Homebrew</h3>
-          <p class="text-muted text-sm"><code class="bg-surface-lighter px-1 rounded">brew install ctscan</code></p>
+        <div class="border-t border-l border-surface-lighter pt-4">
+          <div class="text-2xl font-display font-bold text-bright">0</div>
+          <div class="text-xs text-muted mt-1">dependencies</div>
         </div>
       </div>
     </div>
+
+    <!-- Scroll indicator -->
+    <div class="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-muted">
+      <span class="text-xs font-code tracking-wider">scroll</span>
+      <div class="w-px h-8 bg-gradient-to-b from-phosphor/40 to-transparent"></div>
+    </div>
   </section>
 
-  <!-- Terminal Preview -->
-  <section class="py-16 px-4">
-    <div class="max-w-2xl mx-auto">
-      <p class="text-xs uppercase tracking-widest text-muted mb-6 text-center">Output</p>
-      <div class="bg-surface border border-surface-lighter rounded-lg overflow-hidden">
-        <div class="flex items-center gap-2 px-4 py-2 bg-surface-lighter">
-          <span class="w-3 h-3 rounded-full bg-red-500"></span>
-          <span class="w-3 h-3 rounded-full bg-yellow-400"></span>
-          <span class="w-3 h-3 rounded-full bg-green-terminal"></span>
-          <span class="ml-2 text-xs text-muted">Terminal — ctscan</span>
+  <!-- About Strip -->
+  <section id="features" class="py-24 sm:py-32 px-6">
+    <div class="max-w-3xl mx-auto">
+      <div class="reveal section-label"><span>about</span></div>
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-bright leading-tight mb-6 reveal">
+        Your Mac's health report.<br><span class="text-subtle">No daemon. No GUI. No BS.</span>
+      </h2>
+      <p class="text-base text-subtle leading-relaxed max-w-xl mb-12 reveal">
+        ctscan runs 14 diagnostic checks from the terminal and gives you a clean, color-coded report in less than a second. Battery health, memory pressure, disk status, security posture, network signal, package manager hygiene — all with a single command.
+      </p>
+
+      <!-- Feature strip (horizontal, no cards) -->
+      <div class="reveal stagger-children space-y-0">
+        <!-- Instant -->
+        <div class="flex items-start gap-4 py-5 border-t border-surface-lighter">
+          <i class="ph-duotone ph-lightning text-2xl text-phosphor mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-display font-bold text-bright mb-1">Instant</h3>
+            <p class="text-sm text-muted">Full system scan in under a second. No background processes, no setup required.</p>
+          </div>
         </div>
-        <pre class="p-4 text-xs leading-relaxed overflow-x-auto" style="font-family: 'SF Mono', 'Fira Code', monospace;"><code><span class="text-green-terminal">✓ IDENTITY</span>  MacBook Pro (M3 Max) | macOS 15.4 | Uptime: 3d 14h
-<span class="text-green-terminal">✓ BATTERY</span>   Health: 96% | Cycles: 87 | 72%
-<span class="text-yellow-terminal">⚠ THERMAL</span>   GPU throttling detected
-<span class="text-green-terminal">✓ MEMORY</span>    16.2 GB free / 36 GB | 0 swap used
-<span class="text-green-terminal">✓ STORE</span>     234 GB used / 1 TB | 766 GB free
-<span class="text-green-terminal">✓ SECURITY</span>  FileVault ✓ | SIP ✓ | Gatekeeper ✓
-<span class="text-green-terminal">✓ WIFI</span>      Signal: -42 dBm | Network: Home_5G</code></pre>
+        <!-- Zero privileges -->
+        <div class="flex items-start gap-4 py-5 border-t border-surface-lighter">
+          <i class="ph-duotone ph-shield-check text-2xl text-phosphor mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-display font-bold text-bright mb-1">Zero privileges</h3>
+            <p class="text-sm text-muted">Runs with standard user permissions. No root access, no launch daemons installed.</p>
+          </div>
+        </div>
+        <!-- Modules -->
+        <div class="flex items-start gap-4 py-5 border-t border-surface-lighter">
+          <i class="ph-duotone ph-list-checks text-2xl text-phosphor mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-display font-bold text-bright mb-1">14 modules</h3>
+            <p class="text-sm text-muted">Battery, CPU, memory, disk, security, network, packages, backups — and more. Skip what you don't need.</p>
+          </div>
+        </div>
+        <!-- Pipe-friendly -->
+        <div class="flex items-start gap-4 py-5 border-t border-surface-lighter">
+          <i class="ph-duotone ph-terminal-window text-2xl text-phosphor mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-display font-bold text-bright mb-1">Pipe-friendly</h3>
+            <p class="text-sm text-muted">Color output with <code class="text-xs text-muted bg-surface px-1 py-0.5">--no-color</code> fallback. Parse and log with <code class="text-xs text-muted bg-surface px-1 py-0.5">--quiet</code>.</p>
+          </div>
+        </div>
+        <!-- Homebrew -->
+        <div class="flex items-start gap-4 py-5 border-t border-surface-lighter">
+          <i class="ph-duotone ph-package text-2xl text-phosphor mt-0.5"></i>
+          <div>
+            <h3 class="text-sm font-display font-bold text-bright mb-1">Homebrew install</h3>
+            <p class="text-sm text-muted">One command to install. Updates flow through your standard <code class="text-xs text-muted bg-surface px-1 py-0.5">brew upgrade</code> workflow.</p>
+          </div>
+        </div>
+        <!-- Terminal preview -->
+        <div class="mt-12 reveal">
+          <div class="section-label"><span>preview</span></div>
+          <div class="border border-surface-lighter relative overflow-hidden">
+            <!-- Window chrome -->
+            <div class="flex items-center gap-2 px-4 py-2.5 bg-surface/60">
+              <span class="w-2.5 h-2.5 bg-red/70"></span>
+              <span class="w-2.5 h-2.5 bg-amber/70"></span>
+              <span class="w-2.5 h-2.5 bg-phosphor/70"></span>
+              <span class="ml-auto text-xs text-muted font-code">~/ ctscan</span>
+            </div>
+            <!-- Terminal content with scanlines -->
+            <div class="relative">
+              <div class="absolute inset-0 scanlines pointer-events-none z-10"></div>
+              <pre class="p-5 text-xs leading-relaxed overflow-x-auto relative" style="font-family: 'JetBrains Mono', monospace;"><code><span class="text-phosphor">✓ identity</span>  <span class="text-bright">MacBook Pro (M3 Max)</span> | macOS 15.4 | Uptime: 3d 14h
+<span class="text-phosphor">✓ brew</span>      <span class="text-body">142 formulae, 23 casks — 2 updates available</span>
+<span class="text-phosphor">✓ battery</span>   <span class="text-body">Health: 96%</span> | <span class="text-body">87 cycles</span> | <span class="text-body">72% charged</span>
+<span class="text-amber">⚠ thermal</span>   <span class="text-amber dim">GPU thermal throttling detected</span>
+<span class="text-phosphor">✓ memory</span>    <span class="text-body">16.2 GB free / 36 GB</span> | <span class="text-body">swap: 0 B</span>
+<span class="text-phosphor">✓ store</span>     <span class="text-body">234 GB used / 1 TB</span> | <span class="text-body">766 GB available</span>
+<span class="text-phosphor">✓ security</span>  <span class="text-body">FileVault ✓</span> | <span class="text-body">SIP ✓</span> | <span class="text-body">Gatekeeper ✓</span>
+<span class="text-phosphor">✓ wifi</span>      <span class="text-body">-42 dBm</span> | <span class="text-body">Home_5G</span>
+<span class="text-muted cursor-blink">...</span></code></pre>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- Installation -->
-  <section id="install" class="py-16 px-4 scroll-mt-16">
-    <div class="max-w-2xl mx-auto text-center">
-      <p class="text-xs uppercase tracking-widest text-muted mb-6">Get Started</p>
-      <h2 class="text-2xl font-bold text-white mb-6">Install ctscan</h2>
-      <div class="bg-surface border border-surface-lighter rounded-lg p-4 mb-4 relative group text-left">
-        <button class="absolute top-3 right-3 text-muted hover:text-white text-xs px-3 py-1 rounded bg-surface-lighter transition-colors" onclick="copyToClipboard(this, 'brew tap onurtellioglu/ctscan && brew install ctscan')">Copy</button>
-        <code class="text-sm font-mono text-green-terminal">brew tap onurtellioglu/ctscan && brew install ctscan</code>
+  <section id="install" class="py-24 sm:py-28 px-6">
+    <div class="max-w-3xl mx-auto">
+      <div class="reveal section-label"><span>install</span></div>
+      <h2 class="text-2xl font-display font-bold text-bright mb-8 reveal">Get started</h2>
+
+      <!-- Brew -->
+      <div class="reveal group relative mb-3">
+        <div class="border border-surface-lighter p-5 pr-20 flex items-center justify-between">
+          <div>
+            <span class="text-xs text-muted font-code mb-1 block">via Homebrew</span>
+            <code class="text-sm font-code text-bright">brew tap onur-tellioglu/ctscan && brew install ctscan</code>
+          </div>
+          <button class="absolute top-5 right-4 text-muted hover:text-bright text-xs px-3 py-1.5 bg-surface border border-surface-lighter transition-colors font-code" onclick="copyToClipboard(this, 'brew tap onurtellioglu/ctscan && brew install ctscan')">
+            <i class="ph ph-clipboard"></i>
+          </button>
+        </div>
       </div>
-      <div class="bg-surface border border-surface-lighter rounded-lg p-4 relative group text-left">
-        <button class="absolute top-3 right-3 text-muted hover:text-white text-xs px-3 py-1 rounded bg-surface-lighter transition-colors" onclick="copyToClipboard(this, 'git clone https://github.com/onur-tellioglu/ctscan')">Copy</button>
-        <code class="text-sm font-mono text-body">git clone https://github.com/onur-tellioglu/ctscan</code>
+
+      <!-- Git -->
+      <div class="reveal group relative mb-3">
+        <div class="border border-surface-lighter p-5 pr-20 flex items-center justify-between">
+          <div>
+            <span class="text-xs text-muted font-code mb-1 block">via Git</span>
+            <code class="text-sm font-code text-body">git clone https://github.com/onur-tellioglu/ctscan</code>
+          </div>
+          <button class="absolute top-5 right-4 text-muted hover:text-bright text-xs px-3 py-1.5 bg-surface border border-surface-lighter transition-colors font-code" onclick="copyToClipboard(this, 'git clone https://github.com/onur-tellioglu/ctscan')">
+            <i class="ph ph-clipboard"></i>
+          </button>
+        </div>
       </div>
-      <p class="text-muted text-sm mt-6">
-        <strong class="text-white">Requirements:</strong> macOS · Bash 3.2+ ·
-        <span class="inline-block"><code class="text-xs bg-surface-lighter px-1 rounded">smartmontools</code> (optional, for SSD wear)</span>
-      </p>
+
+      <div class="mt-6 reveal">
+        <p class="text-xs text-muted font-code">
+          <span class="text-subtle">Requires:</span> macOS · Bash 3.2+ · <code class="text-muted bg-surface px-1 py-0.5 ml-1">smartmontools</code> (optional — SSD wear only)
+        </p>
+      </div>
     </div>
   </section>
 
   <!-- Module Reference -->
-  <section id="modules" class="py-16 px-4 scroll-mt-16">
-    <div class="max-w-4xl mx-auto">
-      <p class="text-xs uppercase tracking-widest text-muted mb-6 text-center">Reference</p>
-      <h2 class="text-2xl font-bold text-white mb-8 text-center">Modules</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+  <section id="modules" class="py-24 sm:py-28 px-6">
+    <div class="max-w-3xl mx-auto">
+      <div class="reveal section-label"><span>modules</span></div>
+      <h2 class="text-2xl font-display font-bold text-bright mb-8 reveal">All 14 checks</h2>
+
+      <div class="reveal border border-surface-lighter overflow-x-auto">
+        <table class="w-full text-sm font-code">
           <thead>
             <tr class="border-b border-surface-lighter">
-              <th class="text-left py-3 px-4 text-muted font-medium uppercase tracking-wider text-xs">Module</th>
-              <th class="text-left py-3 px-4 text-muted font-medium uppercase tracking-wider text-xs">Description</th>
-              <th class="text-left py-3 px-4 text-muted font-medium uppercase tracking-wider text-xs hidden sm:table-cell">Warning Condition</th>
+              <th class="text-left py-3 px-5 text-muted font-bold text-xs tracking-widest">MODULE</th>
+              <th class="text-left py-3 px-5 text-muted font-bold text-xs tracking-widest">CHECKS</th>
+              <th class="text-left py-3 px-5 text-muted font-bold text-xs tracking-widest hidden sm:table-cell">TRIGGERS</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-surface-lighter">
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">identity</td><td class="py-3 px-4 text-muted">Hostname, model, macOS version, uptime</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">brew</td><td class="py-3 px-4 text-muted">Homebrew formula &amp; cask counts, outdated pkgs</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Outdated packages detected</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">agents</td><td class="py-3 px-4 text-muted">Launch agents &amp; daemon counts</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">storage</td><td class="py-3 px-4 text-muted">Disk usage, cache size</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Disk nearly full</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">ssd</td><td class="py-3 px-4 text-muted">SSD wear level (requires <code class="text-xs bg-surface-lighter px-1 rounded">smartmontools</code>)</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High wear level</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">battery</td><td class="py-3 px-4 text-muted">Health %, cycle count, current charge</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Low health / high cycles</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">thermal</td><td class="py-3 px-4 text-muted">Thermal throttling, GPU model</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Throttling detected</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">memory</td><td class="py-3 px-4 text-muted">Swap usage, memory free %, total RAM</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High swap / low memory</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">processes</td><td class="py-3 px-4 text-muted">Top 5 by CPU and memory</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Process &gt;80% CPU</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">docker</td><td class="py-3 px-4 text-muted">Running containers, disk usage</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">timemachine</td><td class="py-3 px-4 text-muted">Last backup age and status</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Backup &gt;24h old</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">updates</td><td class="py-3 px-4 text-muted">Pending macOS software updates</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Updates available</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">wifi</td><td class="py-3 px-4 text-muted">Signal strength (dBm), network name</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Weak signal</td></tr>
-            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">security</td><td class="py-3 px-4 text-muted">FileVault, SIP, Gatekeeper status</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Any disabled</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">identity</td><td class="py-3.5 px-5 text-muted">Hostname, model, macOS, uptime</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">—</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">brew</td><td class="py-3.5 px-5 text-muted">Formula/cask counts, outdated</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Outdated packages</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">agents</td><td class="py-3.5 px-5 text-muted">Launch agents &amp; daemon counts</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">—</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">storage</td><td class="py-3.5 px-5 text-muted">Disk usage, cache size</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Disk nearly full</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">ssd</td><td class="py-3.5 px-5 text-muted">SSD wear level <span class="text-muted text-xs">(smartmontools)</span></td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">High wear level</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">battery</td><td class="py-3.5 px-5 text-muted">Health %, cycles, charge</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Low health / high cycles</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">thermal</td><td class="py-3.5 px-5 text-muted">Throttling, GPU model</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Throttling detected</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">memory</td><td class="py-3.5 px-5 text-muted">Swap, free %, RAM</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">High swap / low memory</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">processes</td><td class="py-3.5 px-5 text-muted">Top 5 by CPU and memory</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Process &gt;80% CPU</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">docker</td><td class="py-3.5 px-5 text-muted">Containers, disk usage</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">—</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">timemachine</td><td class="py-3.5 px-5 text-muted">Backup age, status</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Backup &gt;24h old</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">updates</td><td class="py-3.5 px-5 text-muted">Pending macOS updates</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Updates available</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">wifi</td><td class="py-3.5 px-5 text-muted">Signal dBm, network</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Weak signal</td></tr>
+            <tr class="module-row hover:bg-surface/30 transition-colors"><td class="py-3.5 px-5 text-phosphor">security</td><td class="py-3.5 px-5 text-muted">FileVault, SIP, Gatekeeper</td><td class="py-3.5 px-5 text-muted hidden sm:table-cell">Any disabled</td></tr>
           </tbody>
         </table>
       </div>
@@ -192,24 +415,50 @@
   </section>
 
   <!-- Footer -->
-  <footer class="py-8 px-4 border-t border-surface-lighter">
-    <div class="max-w-4xl mx-auto text-center text-muted text-sm">
-      <p>MIT License · <a href="https://github.com/onurtellioglu/ctscan" class="text-body hover:underline">onurtellioglu/ctscan</a></p>
-      <div class="mt-2 flex justify-center gap-4">
-        <a href="https://github.com/onurtellioglu/ctscan" class="hover:text-white transition-colors"><i class="ph ph-github-logo mr-1"></i>GitHub</a>
-        <a href="https://github.com/onurtellioglu/ctscan/issues" class="hover:text-white transition-colors"><i class="ph ph-bug mr-1"></i>Report Issue</a>
+  <footer class="py-16 px-6">
+    <div class="section-label"><span>footer</span></div>
+    <div class="max-w-3xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-xs text-muted font-code">MIT License · <a href="https://github.com/onurtellioglu/ctscan" class="text-subtle hover:text-bright">onur-tellioglu/ctscan</a></p>
+      <div class="flex items-center gap-4">
+        <a href="https://github.com/onur-tellioglu/ctscan" class="text-muted hover:text-bright transition-colors text-xs font-code" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <span class="text-muted">·</span>
+        <a href="https://github.com/onur-tellioglu/ctscan/issues" class="text-muted hover:text-bright transition-colors text-xs font-code" target="_blank" rel="noopener noreferrer">Report Issue</a>
       </div>
     </div>
   </footer>
 
   <script>
+    // Copy to clipboard with feedback
     function copyToClipboard(btn, text) {
       navigator.clipboard.writeText(text).then(() => {
-        const original = btn.textContent;
+        const el = btn.innerHTML;
+        btn.innerHTML = '<span class="text-phosphor">✓ COPIED</span>';
+        setTimeout(() => btn.innerHTML = el, 2000);
+      }).catch(() => {
+        // Fallback for non-HTTPS
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;left:-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
         btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = original, 2000);
+        setTimeout(() => { btn.innerHTML = el; }, 2000);
       });
     }
+
+    // IntersectionObserver for reveal animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
   </script>
 </body>
 </html>
