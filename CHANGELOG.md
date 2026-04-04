@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.5] - 2026-04-04
+
+### Security
+- Fix command injection via awk interpolation in storage, battery, memory, and timemachine modules (awk "BEGIN{...$VAR...}" → awk -v parameter passing)
+- Add module whitelist validation for --skip flag
+
+### Changed
+- (no other changes)
+
 ## [0.3.4] - 2026-04-04
 
 ### Changed
