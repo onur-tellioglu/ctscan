@@ -5,7 +5,7 @@
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square)
 ![Shell](https://img.shields.io/badge/shell-bash-4EAA25?style=flat-square)
 
-A macOS system health scanner for the terminal. Runs 10 diagnostic checks covering identity, storage, battery, thermals, memory, network, and security.
+A macOS system health scanner for the terminal. Runs 14 diagnostic checks covering identity, storage, battery, thermals, memory, processes, network, security, and more.
 
 ## Install
 
@@ -32,7 +32,7 @@ ctscan battery wifi
 
 Skip modules:
 ```bash
-ctscan --skip ssd storage
+ctscan --skip ssd,storage
 ```
 
 Pipe-friendly output:
@@ -47,24 +47,28 @@ ctscan --quiet
 
 ## Modules
 
-| Module   | What it checks                                |
-|----------|-----------------------------------------------|
-| identity | Hostname, model, macOS version, uptime        |
-| brew     | Homebrew formula & cask counts, outdated pkgs |
-| agents   | Launch agents & daemon counts                 |
-| storage  | Disk usage, cache size                        |
-| ssd      | SSD wear level (requires `smartmontools`)     |
-| battery  | Health %, cycle count, current charge         |
-| thermal  | Thermal throttling, GPU model                 |
-| memory   | Swap usage, memory free %, total RAM          |
-| wifi     | Signal strength (dBm), network name           |
-| security | FileVault, SIP, Gatekeeper status             |
+| Module     | What it checks                                              |
+|------------|-------------------------------------------------------------|
+| identity   | Hostname, model, macOS version, uptime                      |
+| brew       | Homebrew formula & cask counts, outdated pkgs               |
+| agents     | Launch agents & daemon counts                               |
+| storage    | Disk usage, cache size                                      |
+| ssd        | SSD wear level (requires `smartmontools`)                   |
+| battery    | Health %, cycle count, current charge                       |
+| thermal    | Thermal throttling, GPU model                               |
+| memory     | Swap usage, memory free %, total RAM                        |
+| processes  | Top 5 by CPU and memory; warns if any process >80% CPU      |
+| docker     | Running containers, disk usage (graceful if Docker absent)  |
+| timemachine| Last backup age and status; warns if backup >24h old        |
+| updates    | Pending macOS software updates; warns if updates available  |
+| wifi       | Signal strength (dBm), network name                         |
+| security   | FileVault, SIP, Gatekeeper status                           |
 
 ## Options
 
 | Flag | Description |
 |------|-------------|
-| `--skip <mod1,mod2>` | Skip specified modules |
+| `--skip <mod1,mod2,...>` | Skip specified modules (comma-separated) |
 | `--no-color` | Disable colored output |
 | `--quiet` | Print critical values only |
 | `--version` | Print version |

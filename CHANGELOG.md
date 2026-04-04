@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.7] - 2026-04-04
+
+### Fixed
+- README: document all 14 modules (processes, docker, timemachine, updates were missing)
+- README: fix --skip example to use comma-separated syntax (`ssd,storage` not `ssd storage`)
+- README: correct module count from 10 to 14
+
 ## [0.3.6] - 2026-04-04
 
 ### Changed
