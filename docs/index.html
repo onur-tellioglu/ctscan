@@ -504,5 +504,130 @@
 
   </div>
 </section>
+
+<!-- Modules -->
+<section id="modules" class="py-24 px-6 bg-bg">
+  <div class="max-w-2xl mx-auto">
+
+    <div class="section-tag reveal">modules</div>
+    <h2 class="font-ui font-bold text-bright tracking-[-0.025em] mb-8 reveal"
+        style="font-size:clamp(1.25rem,2.5vw,1.6rem);">All 14 checks</h2>
+
+    <div class="reveal border border-[#1e1e1e] overflow-x-auto">
+      <table class="w-full font-term text-[11px]">
+        <thead>
+          <tr class="border-b border-[#1e1e1e]">
+            <th class="text-left py-3 px-4 text-muted font-semibold text-[9px] tracking-[0.12em] uppercase">Module</th>
+            <th class="text-left py-3 px-4 text-muted font-semibold text-[9px] tracking-[0.12em] uppercase">Checks</th>
+            <th class="text-left py-3 px-4 text-muted font-semibold text-[9px] tracking-[0.12em] uppercase hidden sm:table-cell">Triggers</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#1a1a1a]">
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">identity</td><td class="py-3 px-4 text-muted">Hostname, model, macOS, uptime</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">brew</td><td class="py-3 px-4 text-muted">Formula/cask counts, outdated</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Outdated packages</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">agents</td><td class="py-3 px-4 text-muted">Launch agents &amp; daemon counts</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">storage</td><td class="py-3 px-4 text-muted">Disk usage, cache size</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Disk nearly full</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">ssd</td><td class="py-3 px-4 text-muted">SSD wear level (smartmontools)</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High wear level</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">battery</td><td class="py-3 px-4 text-muted">Health %, cycles, charge</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Low health / high cycles</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">thermal</td><td class="py-3 px-4 text-muted">Throttling, GPU model</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Throttling detected</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">memory</td><td class="py-3 px-4 text-muted">Swap, free %, RAM</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High swap / low memory</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">processes</td><td class="py-3 px-4 text-muted">Top 5 by CPU and memory</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Process &gt;80% CPU</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">docker</td><td class="py-3 px-4 text-muted">Containers, disk usage</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">timemachine</td><td class="py-3 px-4 text-muted">Backup age, status</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Backup &gt;24h old</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">updates</td><td class="py-3 px-4 text-muted">Pending macOS updates</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Updates available</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">wifi</td><td class="py-3 px-4 text-muted">Signal dBm, network</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Weak signal</td></tr>
+          <tr class="mod-row transition-colors"><td class="py-3 px-4">security</td><td class="py-3 px-4 text-muted">FileVault, SIP, Gatekeeper</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Any disabled</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</section>
+
+<!-- Install -->
+<section id="install" class="py-24 px-6" style="background:#111113;">
+  <div class="max-w-2xl mx-auto">
+
+    <div class="section-tag reveal">install</div>
+    <h2 class="font-ui font-bold text-bright tracking-[-0.025em] mb-8 reveal"
+        style="font-size:clamp(1.25rem,2.5vw,1.6rem);">Get started</h2>
+
+    <div class="reveal">
+      <div class="install-block">
+        <div class="install-header">via Homebrew</div>
+        <div class="install-cmd">
+          <code class="font-term text-[12px] text-bright">brew tap onur-tellioglu/ctscan &amp;&amp; brew install ctscan</code>
+          <button class="copy-btn" onclick="copyToClipboard(this,'brew tap onur-tellioglu/ctscan && brew install ctscan')">⌘ Copy</button>
+        </div>
+      </div>
+
+      <div class="install-block">
+        <div class="install-header">via Git</div>
+        <div class="install-cmd">
+          <code class="font-term text-[12px] text-muted">git clone https://github.com/onur-tellioglu/ctscan</code>
+          <button class="copy-btn" onclick="copyToClipboard(this,'git clone https://github.com/onur-tellioglu/ctscan')">⌘ Copy</button>
+        </div>
+      </div>
+
+      <p class="font-term text-[10px] text-[#444] mt-5 leading-relaxed">
+        Requires: macOS · Bash 3.2+ ·
+        <code class="text-[#555]">smartmontools</code> optional — SSD wear only
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="py-12 px-6 border-t border-[#1e1e1e]">
+  <div class="max-w-2xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+    <p class="font-term text-[10px] text-[#444]">
+      MIT License ·
+      <a href="https://github.com/onur-tellioglu/ctscan"
+         class="text-[#555] hover:text-subtle transition-colors"
+         target="_blank" rel="noopener noreferrer">onur-tellioglu/ctscan</a>
+    </p>
+    <div class="flex items-center gap-4">
+      <a href="https://github.com/onur-tellioglu/ctscan"
+         class="font-term text-[10px] text-[#444] hover:text-subtle transition-colors"
+         target="_blank" rel="noopener noreferrer">GitHub</a>
+      <span class="text-[#2a2a2c]">·</span>
+      <a href="https://github.com/onur-tellioglu/ctscan/issues"
+         class="font-term text-[10px] text-[#444] hover:text-subtle transition-colors"
+         target="_blank" rel="noopener noreferrer">Report Issue</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function copyToClipboard(btn, text) {
+    const original = btn.innerHTML;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerHTML = '<span style="color:#28c840;">✓ Copied</span>';
+      setTimeout(() => { btn.innerHTML = original; }, 2000);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;left:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.innerHTML = '<span style="color:#28c840;">✓ Copied</span>';
+      setTimeout(() => { btn.innerHTML = original; }, 2000);
+    });
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -32px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
 </body>
 </html>
