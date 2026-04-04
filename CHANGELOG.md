@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.8] - 2026-04-04
+
+### Changed
+- identity: replace raw `uptime` line with parsed Uptime, Load, and Users sections; list active sessions via `who`
+- battery: clean up charge display, remove raw pmset line; round health to 1 decimal place
+- thermal: suppress noisy "Note: No X has been recorded" lines when system is nominal
+- memory: fix blank line bug from `memory_pressure`; parse swap into `X used / Y total` format
+- wifi: show SSID, Signal/Noise, and TX Rate as separate labeled lines instead of one raw string
+
 ## [0.3.7] - 2026-04-04
 
 ### Fixed
