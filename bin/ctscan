@@ -198,7 +198,7 @@ check_battery() {
   # Precise health: FccComp1 / DesignCapacity
   local health_pct=""
   if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
-    health_pct=$(awk "BEGIN{printf \"%.4f\", $fcc_cap/$design_cap*100}")
+    health_pct=$(awk -v f="$fcc_cap" -v d="$design_cap" 'BEGIN{printf "%.4f", f/d*100}')
     local health_int=${health_pct%.*}
     if [[ "${health_int:-100}" -lt 80 ]]; then
       print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
