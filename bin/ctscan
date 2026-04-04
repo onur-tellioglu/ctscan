@@ -554,6 +554,16 @@ parse_args() {
           exit 1
         fi
         IFS=',' read -ra SKIP_MODULES <<< "$1"
+        for sk in "${SKIP_MODULES[@]}"; do
+          local valid=false
+          for m in "${ALL_MODULES[@]}"; do
+            [[ "$m" == "$sk" ]] && valid=true && break
+          done
+          if ! $valid; then
+            print_error "Invalid skip module: $sk"
+            exit 1
+          fi
+        done
         shift
         ;;
       --*)
