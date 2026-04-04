@@ -1,5 +1,10 @@
 # ctscan
 
+![Latest Release](https://img.shields.io/github/v/release/onur-tellioglu/ctscan?style=flat-square)
+![License](https://img.shields.io/github/license/onur-tellioglu/ctscan?style=flat-square)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey?style=flat-square)
+![Shell](https://img.shields.io/badge/shell-bash-4EAA25?style=flat-square)
+
 A macOS system health scanner for the terminal. Runs 10 diagnostic checks covering identity, storage, battery, thermals, memory, network, and security.
 
 ## Install
