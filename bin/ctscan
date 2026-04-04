@@ -22,9 +22,12 @@ json_result() {
   # Usage: json_result <module> <status> <value> <message>
   # status: ok | warn | error | unavailable
   local mod="$1" status="$2" value="$3" message="${4:-}"
+  # Proper JSON escaping: backslash first, then double-quote, then control chars
+  value="${value//\\/\\\\}"; value="${value//\"/\\\"}"; value="${value//$'\n'/\\n}"; value="${value//$'\t'/\\t}"
+  message="${message//\\/\\\\}"; message="${message//\"/\\\"}"; message="${message//$'\n'/\\n}"; message="${message//$'\t'/\\t}"
   _JSON_STATUS["$mod"]="$status"
-  _JSON_VALUE["$mod"]="${value//\"/\'}"   # replace " with ' to keep JSON valid
-  _JSON_MSG["$mod"]="${message//\"/\'}"
+  _JSON_VALUE["$mod"]="$value"
+  _JSON_MSG["$mod"]="$message"
 }
 
 emit_json() {
