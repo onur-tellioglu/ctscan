@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ctscan - macOS System Health</title>
+  <title>ctscan - macOS System Health Scanner</title>
+  <meta name="description" content="A lightweight macOS system health scanner for the terminal. 14 diagnostic checks, zero friction. Install via Homebrew.">
+  <meta name="theme-color" content="#0A0A0A">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬛</text></svg>">
+  <meta property="og:title" content="ctscan - macOS System Health Scanner">
+  <meta property="og:description" content="14 diagnostic checks. Terminal-native. Zero friction.">
+  <meta property="og:type" content="website">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@latest" />
   <script>
@@ -26,9 +32,21 @@
     };
   </script>
 </head>
-<body class="bg-bg text-body antialiased">
+<body class="bg-bg text-body antialiased scroll-smooth">
+  <!-- Top Nav -->
+  <nav class="fixed top-0 left-0 right-0 z-50 bg-bg/80 backdrop-blur-sm border-b border-surface-lighter">
+    <div class="max-w-4xl mx-auto px-4 flex items-center justify-between h-12 text-sm">
+      <a href="#home" class="font-mono font-bold text-white">ctscan</a>
+      <div class="flex items-center gap-4">
+        <a href="#modules" class="text-muted hover:text-white transition-colors">Modules</a>
+        <a href="#install" class="text-muted hover:text-white transition-colors">Install</a>
+        <a href="https://github.com/onurtellioglu/ctscan" class="text-muted hover:text-white transition-colors" target="_blank"><i class="ph ph-github-logo"></i></a>
+      </div>
+    </div>
+  </nav>
+
   <!-- Hero -->
-  <section class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+  <section id="home" class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
     <div class="text-center">
       <h1 class="text-6xl md:text-8xl font-bold font-mono tracking-tight text-white">ctscan</h1>
       <p class="mt-4 text-lg md:text-xl text-muted max-w-xl mx-auto">
@@ -119,7 +137,7 @@
   </section>
 
   <!-- Installation -->
-  <section class="py-16 px-4">
+  <section id="install" class="py-16 px-4 scroll-mt-16">
     <div class="max-w-2xl mx-auto text-center">
       <p class="text-xs uppercase tracking-widest text-muted mb-6">Get Started</p>
       <h2 class="text-2xl font-bold text-white mb-6">Install ctscan</h2>
@@ -139,7 +157,7 @@
   </section>
 
   <!-- Module Reference -->
-  <section class="py-16 px-4">
+  <section id="modules" class="py-16 px-4 scroll-mt-16">
     <div class="max-w-4xl mx-auto">
       <p class="text-xs uppercase tracking-widest text-muted mb-6 text-center">Reference</p>
       <h2 class="text-2xl font-bold text-white mb-8 text-center">Modules</h2>
