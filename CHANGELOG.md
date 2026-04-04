@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.3] - 2026-04-04
+
+### Changed
+- Removed dead `uptime_str` variable in `check_identity` (−3 forks per run)
+- Cleaned up dead `avail_gb` and redundant `local` declarations in `check_storage`
+- Consolidated `df -H` parsing: 4× `echo | awk` → single `read` (−3 forks)
+- Replaced `awk | cut` + `awk | xargs basename` in process threshold check with bash builtins (−3 forks)
+- Replaced subshell pluralization in `check_timemachine` with bash variables (−2 forks)
+- Replaced `echo | grep -qi` in `check_security` with `[[ ]]` glob match (−2 forks)
+- Replaced all `bc` calls with `awk` or `$(( ))` arithmetic (−5–10 forks per run)
+- Rewrote `check_processes` verbose block: two single-pass awk scripts for CPU and memory tables (−30 forks)
+- Consolidated `docker system df` parsing from 6× `echo | awk` into one multi-pattern awk pass (−5 forks)
+
 ## [0.3.2] - 2026-04-04
 
 ### Added
