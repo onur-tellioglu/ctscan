@@ -121,6 +121,86 @@ assert_exit1 "--skip rejects invalid module names" --skip 'storage;evil'
 assert_exit1 "--skip rejects glob chars" --skip 'st*'
 assert_exit1 "--skip rejects pipe chars" --skip 'sto|rage'
 
+# ── JSON format tests ───────────────────────────────────────────────────────
+
+test_json_output_is_valid_json() {
+  local out
+  out=$(bash bin/ctscan --format json 2>/dev/null)
+  if ! echo "$out" | python3 -m json.tool > /dev/null 2>&1; then
+    echo "FAIL: --format json did not produce valid JSON"
+    echo "Output was: $out"
+    return 1
+  fi
+  echo "PASS: --format json produces valid JSON"
+}
+
+test_json_contains_all_modules() {
+  local out
+  out=$(bash bin/ctscan --format json 2>/dev/null)
+  local missing=()
+  for mod in identity brew agents storage ssd battery thermal memory processes docker timemachine updates wifi security; do
+    if ! echo "$out" | python3 -c "import sys,json; d=json.load(sys.stdin); assert '$mod' in d" 2>/dev/null; then
+      missing+=("$mod")
+    fi
+  done
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "FAIL: JSON missing modules: ${missing[*]}"
+    return 1
+  fi
+  echo "PASS: JSON contains all 14 module keys"
+}
+
+test_json_each_module_has_required_fields() {
+  local out
+  out=$(bash bin/ctscan --format json 2>/dev/null)
+  local failed=false
+  for mod in identity brew battery thermal memory; do
+    if ! echo "$out" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+m = d['$mod']
+assert 'status' in m, 'missing status'
+assert 'value' in m, 'missing value'
+assert 'message' in m, 'missing message'
+assert m['status'] in ('ok','warn','error','unavailable'), 'invalid status: '+m['status']
+" 2>/dev/null; then
+      echo "FAIL: module '$mod' missing required fields or invalid status"
+      failed=true
+    fi
+  done
+  $failed && return 1
+  echo "PASS: sampled modules have required fields with valid status values"
+}
+
+test_json_no_text_output() {
+  local out
+  out=$(bash bin/ctscan --format json 2>/dev/null)
+  if echo "$out" | grep -qE '(══|✓|⚠|·)'; then
+    echo "FAIL: --format json output contains text formatting"
+    return 1
+  fi
+  echo "PASS: --format json output contains no text formatting"
+}
+
+test_json_single_module() {
+  local out
+  out=$(bash bin/ctscan --format json battery 2>/dev/null)
+  local count
+  count=$(echo "$out" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
+  if [[ "$count" != "1" ]]; then
+    echo "FAIL: single-module JSON should have 1 key, got: $count"
+    return 1
+  fi
+  echo "PASS: single-module JSON contains exactly 1 key"
+}
+
+# Run JSON tests
+test_json_output_is_valid_json        || ((FAIL++))
+test_json_contains_all_modules        || ((FAIL++))
+test_json_each_module_has_required_fields || ((FAIL++))
+test_json_no_text_output              || ((FAIL++))
+test_json_single_module               || ((FAIL++))
+
 # ── Summary ───────────────────────────────────
 echo
 echo "Results: $PASS passed, $FAIL failed"
