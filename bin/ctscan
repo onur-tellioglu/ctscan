@@ -429,7 +429,7 @@ check_timemachine() {
     bkp_progress=$(echo "$status_out" | grep -i "Percent" | grep -oE '[0-9.]+' | head -1)
     if [[ -n "$bkp_progress" ]]; then
       local pct_int
-      pct_int=$(awk "BEGIN{printf \"%d\", $bkp_progress*100}")
+      pct_int=$(awk -v p="$bkp_progress" 'BEGIN{printf "%d", p*100}')
       print_info "Status: backing up (${pct_int}% complete)"
     else
       print_info "Status: backing up"
