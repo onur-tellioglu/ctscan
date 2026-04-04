@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.6] - 2026-04-04
+
+### Changed
+- Remove AI tooling artifacts from repository (docs/superpowers/, ignored AGENTS.md, OPTIMIZATIONS.md)
+- Add version, license, platform, and shell badges to README
+
 ## [0.3.5] - 2026-04-04
 
 ### Security
