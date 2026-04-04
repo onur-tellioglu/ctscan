@@ -11,6 +11,46 @@ VERSION="0.3.8"
 # ──────────────────────────────────────────────
 USE_COLOR=true
 QUIET=false
+FORMAT="text"
+
+# ── JSON result collection ──────────────────────
+declare -A _JSON_STATUS=()
+declare -A _JSON_VALUE=()
+declare -A _JSON_MSG=()
+
+json_result() {
+  # Usage: json_result <module> <status> <value> <message>
+  # status: ok | warn | error | unavailable
+  local mod="$1" status="$2" value="$3" message="${4:-}"
+  _JSON_STATUS["$mod"]="$status"
+  _JSON_VALUE["$mod"]="${value//\"/\'}"   # replace " with ' to keep JSON valid
+  _JSON_MSG["$mod"]="${message//\"/\'}"
+}
+
+emit_json() {
+  local first=true
+  printf '{\n'
+  for mod in "${ALL_MODULES[@]}"; do
+    [[ -z "${_JSON_STATUS[$mod]+x}" ]] && continue
+    $first || printf ',\n'
+    printf '  "%s": {"status": "%s", "value": "%s", "message": "%s"}' \
+      "$mod" "${_JSON_STATUS[$mod]}" "${_JSON_VALUE[$mod]}" "${_JSON_MSG[$mod]}"
+    first=false
+  done
+  printf '\n}\n'
+}
+
+# In JSON mode suppress all human-readable output
+_maybe_silence_printing() {
+  if [[ "$FORMAT" == "json" ]]; then
+    print_header() { :; }
+    print_ok()     { :; }
+    print_warn()   { :; }
+    print_info()   { :; }
+    print_error()  { :; }
+    color()        { :; }
+  fi
+}
 
 color() {
   local code="$1"; shift
@@ -593,6 +633,19 @@ parse_args() {
         done
         shift
         ;;
+      --format)
+        shift
+        if [[ $# -eq 0 ]]; then
+          print_error "--format requires a value: json"
+          exit 1
+        fi
+        if [[ "$1" != "json" ]]; then
+          print_error "--format value must be 'json' (got: $1)"
+          exit 1
+        fi
+        FORMAT="json"
+        shift
+        ;;
       --*)
         print_error "Unknown option: $1"
         print_usage >&2
@@ -642,6 +695,7 @@ OPTIONS:
   --skip <mod1,mod2>   Skip specified modules
   --no-color           Disable colored output (for pipe/CI)
   --quiet              Print critical values only
+  --format json        Emit structured JSON (suppresses all text output)
   --version            Print version
   --help               Print usage
 
@@ -657,6 +711,7 @@ EOF
 # run_modules
 # ──────────────────────────────────────────────
 run_modules() {
+  _maybe_silence_printing
   local to_run=()
 
   if [[ ${#SELECTED_MODULES[@]} -gt 0 ]]; then
@@ -701,7 +756,11 @@ run_modules() {
     echo
   done
 
-  color "0;90" "  ctscan $VERSION"
+  if [[ "$FORMAT" == "json" ]]; then
+    emit_json
+  else
+    color "0;90" "  ctscan $VERSION"
+  fi
 }
 
 # ──────────────────────────────────────────────
