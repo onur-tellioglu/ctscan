@@ -127,7 +127,7 @@ check_storage() {
   if [[ -d ~/Library/Caches ]]; then
     cache_size_kb=$(du -sk ~/Library/Caches 2>/dev/null | awk '{print $1}')
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
-      cache_size_gb=$(awk "BEGIN{printf \"%.1f\", $cache_size_kb/1048576}")
+      cache_size_gb=$(awk -v k="$cache_size_kb" 'BEGIN{printf "%.1f", k/1048576}')
       print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
     fi
   fi

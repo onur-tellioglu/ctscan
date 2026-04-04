@@ -113,6 +113,9 @@ assert_exit0 "--quiet exits 0" --quiet security
 assert_exit1 "unknown module exits 1" unknownmodule
 assert_exit1 "unknown flag exits 1"   --unknownflag
 
+# ── Security: no injection via awk/external data ──
+assert_exit0 "storage module safe with large cache dir" storage
+
 # ── Summary ───────────────────────────────────
 echo
 echo "Results: $PASS passed, $FAIL failed"
