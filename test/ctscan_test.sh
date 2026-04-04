@@ -116,6 +116,11 @@ assert_exit1 "unknown flag exits 1"   --unknownflag
 # ── Security: no injection via awk/external data ──
 assert_exit0 "storage module safe with large cache dir" storage
 
+# ── Security: input validation ──
+assert_exit1 "--skip rejects invalid module names" --skip 'storage;evil'
+assert_exit1 "--skip rejects glob chars" --skip 'st*'
+assert_exit1 "--skip rejects pipe chars" --skip 'sto|rage'
+
 # ── Summary ───────────────────────────────────
 echo
 echo "Results: $PASS passed, $FAIL failed"
