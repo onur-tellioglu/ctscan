@@ -264,7 +264,7 @@ check_memory() {
   swap_out=$(sysctl vm.swapusage 2>/dev/null)
   # Example: vm.swapusage: total = 2048.00M  used = 512.00M  free = 1536.00M
   swap_used_mb=$(sysctl vm.swapusage 2>/dev/null | awk -F'used = ' '{split($2,a," "); gsub(/M/,"",a[1]); print a[1]}')
-  swap_used_gb=$(awk "BEGIN{printf \"%.2f\", ${swap_used_mb:-0}/1024}")
+  swap_used_gb=$(awk -v m="${swap_used_mb:-0}" 'BEGIN{printf "%.2f", m/1024}')
 
   local swap_mb_int=${swap_used_mb%.*}
   local swap_mb_threshold=2048  # 2GB
