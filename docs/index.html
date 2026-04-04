@@ -28,7 +28,21 @@
 </head>
 <body class="bg-bg text-body antialiased">
   <!-- Hero -->
-  <section>
+  <section class="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+    <div class="text-center">
+      <h1 class="text-6xl md:text-8xl font-bold font-mono tracking-tight text-white">ctscan</h1>
+      <p class="mt-4 text-lg md:text-xl text-muted max-w-xl mx-auto">
+        macOS system health. Terminal-native. 14 checks, zero friction.
+      </p>
+      <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <button class="bg-white text-bg font-semibold px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer" onclick="navigator.clipboard.writeText('brew install ctscan'); this.textContent='Copied!'; setTimeout(() => this.textContent='Install via Brew', 2000);">
+          <i class="ph ph-package mr-2"></i>Install via Brew
+        </button>
+        <a href="https://github.com/onurtellioglu/ctscan" target="_blank" class="border border-surface-lighter text-body px-6 py-3 rounded-lg hover:bg-surface-light transition-colors inline-flex items-center">
+          <i class="ph ph-github-logo mr-2"></i>on GitHub
+        </a>
+      </div>
+    </div>
   </section>
 </body>
 </html>
