@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.3.2"
+VERSION="0.3.3"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -32,11 +32,10 @@ print_error()  { color "0;31" "ERROR: $*" >&2; }
 # ──────────────────────────────────────────────
 check_identity() {
   print_header "Identity"
-  local hostname model os_ver uptime_str
+  local hostname model os_ver
   hostname=$(scutil --get ComputerName 2>/dev/null || hostname)
   model=$(system_profiler SPHardwareDataType 2>/dev/null | awk -F': ' '/Model Name/{print $2; exit}')
   os_ver=$(sw_vers -productVersion 2>/dev/null)
-  uptime_str=$(uptime | sed 's/.*up //' | sed 's/,.*//')
 
   $QUIET && return
 
@@ -106,24 +105,18 @@ check_agents() {
 check_storage() {
   print_header "Storage"
 
-  local disk_info avail_gb cache_size_kb cache_size_gb
-  disk_info=$(df -H / 2>/dev/null | tail -1)
-  local total used avail pct
-  total=$(echo "$disk_info" | awk '{print $2}')
-  used=$(echo "$disk_info" | awk '{print $3}')
-  avail=$(echo "$disk_info" | awk '{print $4}')
-  pct=$(echo "$disk_info" | awk '{print $5}')
+  local cache_size_kb cache_size_gb
+  local total used avail pct _dfrest
+  read -r _dfrest total used avail pct _dfrest < <(df -H / 2>/dev/null | tail -1)
 
   # Disk summary line (always shown)
   print_info "Disk: $used used / $total total ($pct full)"
 
   # Cache threshold check (quiet mode warning)
   if [[ -d ~/Library/Caches ]]; then
-    local cache_size_kb
     cache_size_kb=$(du -sk ~/Library/Caches 2>/dev/null | awk '{print $1}')
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
-      local cache_size_gb
-      cache_size_gb=$(echo "scale=1; $cache_size_kb / 1048576" | bc 2>/dev/null)
+      cache_size_gb=$(awk "BEGIN{printf \"%.1f\", $cache_size_kb/1048576}")
       print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
     fi
   fi
@@ -194,7 +187,7 @@ check_battery() {
   # Precise health: FccComp1 / DesignCapacity
   local health_pct=""
   if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
-    health_pct=$(echo "scale=4; $fcc_cap / $design_cap * 100" | bc 2>/dev/null)
+    health_pct=$(awk "BEGIN{printf \"%.4f\", $fcc_cap/$design_cap*100}")
     local health_int=${health_pct%.*}
     if [[ "${health_int:-100}" -lt 80 ]]; then
       print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
@@ -256,7 +249,7 @@ check_memory() {
   swap_out=$(sysctl vm.swapusage 2>/dev/null)
   # Example: vm.swapusage: total = 2048.00M  used = 512.00M  free = 1536.00M
   swap_used_mb=$(echo "$swap_out" | grep -oE 'used = [0-9.]+M' | grep -oE '[0-9.]+')
-  swap_used_gb=$(echo "scale=2; ${swap_used_mb:-0} / 1024" | bc 2>/dev/null)
+  swap_used_gb=$(awk "BEGIN{printf \"%.2f\", ${swap_used_mb:-0}/1024}")
 
   local swap_mb_int=${swap_used_mb%.*}
   local swap_mb_threshold=2048  # 2GB
@@ -282,43 +275,33 @@ check_processes() {
   ps_out=$(ps aux 2>/dev/null)
 
   # Quiet threshold: any single process >80% CPU
-  local high_cpu_proc high_cpu_pct
+  local high_cpu_proc high_cpu_pct_full high_cpu_path high_cpu_pct
   high_cpu_proc=$(echo "$ps_out" | awk 'NR>1 {print $3, $11}' | sort -rn | head -1)
-  high_cpu_pct=$(echo "$high_cpu_proc" | awk '{print $1}' | cut -d. -f1)
+  read -r high_cpu_pct_full high_cpu_path <<< "$high_cpu_proc"
+  high_cpu_pct=${high_cpu_pct_full%.*}
   if [[ -n "$high_cpu_pct" && "$high_cpu_pct" -gt 80 ]]; then
-    local proc_name
-    proc_name=$(echo "$high_cpu_proc" | awk '{print $2}' | xargs basename 2>/dev/null)
-    local full_pct
-    full_pct=$(echo "$high_cpu_proc" | awk '{print $1}')
-    print_warn "High CPU: $proc_name at ${full_pct}%"
+    local proc_name=${high_cpu_path##*/}
+    print_warn "High CPU: $proc_name at ${high_cpu_pct_full}%"
   fi
 
   $QUIET && return
 
   echo
   color "0;32" "  Top by CPU:"
-  echo "$ps_out" | awk 'NR>1 {printf "%6.1f  %s\n", $3, $11}' | sort -rn | head -5 | while IFS= read -r line; do
-    local pct name
-    pct=$(echo "$line" | awk '{print $1}')
-    name=$(echo "$line" | awk '{print $2}' | xargs basename 2>/dev/null)
-    print_info "$(printf '%5s%%  %s' "$pct" "$name")"
-  done
+  echo "$ps_out" | awk 'NR>1 {
+    n=split($11,a,"/"); printf "%5.1f%%  %s\n", $3, a[n]
+  }' | sort -rn | head -5 | while IFS= read -r line; do print_info "$line"; done
 
   echo
   color "0;32" "  Top by Memory:"
-  echo "$ps_out" | awk 'NR>1 {printf "%10d  %s\n", $6, $11}' | sort -rn | head -5 | while IFS= read -r line; do
-    local kb name display
-    kb=$(echo "$line" | awk '{print $1}')
-    name=$(echo "$line" | awk '{print $2}' | xargs basename 2>/dev/null)
-    if [[ "$kb" -ge 1048576 ]]; then
-      display=$(echo "scale=1; $kb/1048576" | bc)G
-    elif [[ "$kb" -ge 1024 ]]; then
-      display=$(echo "scale=0; $kb/1024" | bc)M
-    else
-      display="${kb}K"
-    fi
-    print_info "$(printf '%-6s  %s' "$display" "$name")"
-  done
+  echo "$ps_out" | awk 'NR>1 {
+    n=split($11,a,"/"); printf "%10d %s\n", $6, a[n]
+  }' | sort -rn | head -5 | awk '{
+    kb=$1; name=$2
+    if (kb>=1048576) printf "%-6s  %s\n", sprintf("%.1fG",kb/1048576), name
+    else if (kb>=1024) printf "%-6s  %s\n", int(kb/1024)"M", name
+    else printf "%-6s  %s\n", kb"K", name
+  }' | while IFS= read -r line; do print_info "$line"; done
 }
 
 # ──────────────────────────────────────────────
@@ -360,12 +343,13 @@ check_docker() {
   if [[ -n "$df_out" ]]; then
     echo
     local images vols img_size cont_size vol_size total_size
-    images=$(echo "$df_out" | awk '/^Images/{print $2}')
-    vols=$(echo "$df_out" | awk '/^Local Volumes/{print $2}')
-    img_size=$(echo "$df_out" | awk '/^Images/{print $4}')
-    cont_size=$(echo "$df_out" | awk '/^Containers/{print $4}')
-    vol_size=$(echo "$df_out" | awk '/^Local Volumes/{print $4}')
-    total_size=$(echo "$df_out" | awk '/^Build Cache/{print $4}')
+    read -r images img_size vols vol_size cont_size total_size < <(echo "$df_out" | awk '
+      /^Images/       { im=$2; ims=$4 }
+      /^Containers/   { cs=$4 }
+      /^Local Volumes/{ vo=$2; vos=$4 }
+      /^Build Cache/  { bc=$4 }
+      END { print im, ims, vo, vos, cs, bc }
+    ')
     print_info "Images: ${images:-0}  |  Volumes: ${vols:-0}"
     print_info "Disk usage: ${img_size:-0} images · ${cont_size:-0} containers · ${vol_size:-0} volumes"
   fi
@@ -401,10 +385,12 @@ check_timemachine() {
       age_hours=$(( (now_ts - backup_ts) / 3600 ))
       if [[ "$age_hours" -ge 24 ]]; then
         local age_days=$(( age_hours / 24 ))
-        age_display="${age_days} day$( [[ $age_days -eq 1 ]] || echo s ) ago"
+        local _ds; [[ $age_days -eq 1 ]] && _ds="" || _ds="s"
+        age_display="${age_days} day${_ds} ago"
         print_warn "Last backup: $age_display — Time Machine may not be running"
       else
-        age_display="${age_hours} hour$( [[ $age_hours -eq 1 ]] || echo s ) ago"
+        local _hs; [[ $age_hours -eq 1 ]] && _hs="" || _hs="s"
+        age_display="${age_hours} hour${_hs} ago"
         print_ok "Last backup: $age_display ($date_part $formatted_time)"
       fi
     fi
@@ -428,7 +414,7 @@ check_timemachine() {
     bkp_progress=$(echo "$status_out" | grep -i "Percent" | grep -oE '[0-9.]+' | head -1)
     if [[ -n "$bkp_progress" ]]; then
       local pct_int
-      pct_int=$(echo "$bkp_progress * 100 / 1" | bc 2>/dev/null)
+      pct_int=$(awk "BEGIN{printf \"%d\", $bkp_progress*100}")
       print_info "Status: backing up (${pct_int}% complete)"
     else
       print_info "Status: backing up"
@@ -500,8 +486,10 @@ check_security() {
   sip_status=$(csrutil status 2>/dev/null)
 
   # Threshold checks for --quiet
-  echo "$fv_status" | grep -qi "FileVault is Off" && print_warn "FileVault: OFF — disk is not encrypted"
-  echo "$sip_status" | grep -qi "disabled"        && print_warn "SIP: DISABLED"
+  shopt -s nocasematch
+  [[ "$fv_status" == *"filevault is off"* ]] && print_warn "FileVault: OFF — disk is not encrypted"
+  [[ "$sip_status" == *"disabled"* ]]        && print_warn "SIP: DISABLED"
+  shopt -u nocasematch
 
   $QUIET && return
 
