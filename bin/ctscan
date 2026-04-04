@@ -104,6 +104,7 @@ check_identity() {
     print_info "Users:   $user_count session(s)"
     echo "$who_out" | while IFS= read -r line; do print_info "  $line"; done
   fi
+  json_result "identity" "ok" "macOS ${os_ver}" "${hostname}${model:+, $model}, up ${uptime_dur}"
 }
 
 # ──────────────────────────────────────────────
@@ -113,6 +114,7 @@ check_brew() {
   print_header "Homebrew"
   if ! command -v brew &>/dev/null; then
     print_warn "Homebrew not installed"
+    json_result "brew" "unavailable" "" "Homebrew not installed"
     return
   fi
 
@@ -120,6 +122,9 @@ check_brew() {
   outdated=$(brew outdated 2>/dev/null | wc -l | tr -d ' ')
   if [[ "$outdated" -gt 0 ]]; then
     print_warn "$outdated package(s) outdated — run: brew upgrade"
+    json_result "brew" "warn" "${outdated} outdated" "run: brew upgrade"
+  else
+    json_result "brew" "ok" "up to date" ""
   fi
 
   $QUIET && return
@@ -165,6 +170,7 @@ check_agents() {
       print_info "(empty)"
     fi
   done
+  json_result "agents" "ok" "" ""
 }
 
 # ──────────────────────────────────────────────
@@ -186,6 +192,9 @@ check_storage() {
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
       cache_size_gb=$(awk -v k="$cache_size_kb" 'BEGIN{printf "%.1f", k/1048576}')
       print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
+      json_result "storage" "warn" "$pct" "${cache_size_gb}GB cache (>5GB)"
+    else
+      json_result "storage" "ok" "$pct" ""
     fi
   fi
 
@@ -203,6 +212,7 @@ check_ssd() {
   print_header "SSD Wear"
   if ! command -v smartctl &>/dev/null; then
     print_warn "smartmontools not installed — install with: brew install smartmontools"
+    json_result "ssd" "unavailable" "" "smartmontools not installed"
     return
   fi
 
@@ -211,6 +221,7 @@ check_ssd() {
   smart_out=$(smartctl -a /dev/disk0 2>/dev/null)
   if [[ -z "$smart_out" ]]; then
     print_warn "smartctl could not read disk0 (unsupported disk)"
+    json_result "ssd" "unavailable" "" "smartctl could not read disk0"
     return
   fi
 
@@ -220,11 +231,15 @@ check_ssd() {
 
   if [[ -z "$pct_used" ]]; then
     $QUIET || print_info "SSD wear data not available"
+    json_result "ssd" "unavailable" "" "wear data not available"
     return
   fi
 
   if [[ "$pct_used" -gt 80 ]]; then
     print_warn "SSD wear: ${pct_used}% used (>80%) — consider planning replacement"
+    json_result "ssd" "warn" "${pct_used}% used" "consider replacement"
+  else
+    json_result "ssd" "ok" "${pct_used}% used" "${tbw:+$tbw written}"
   fi
 
   $QUIET && return
@@ -256,15 +271,24 @@ check_battery() {
   local health_pct=""
   if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
     health_pct=$(awk -v f="$fcc_cap" -v d="$design_cap" 'BEGIN{printf "%.1f", f/d*100}')
+  fi
+
+  local _bat_status="ok"
+  local _bat_msg=""
+  if [[ -n "$health_pct" ]]; then
     local health_int=${health_pct%.*}
     if [[ "${health_int:-100}" -lt 80 ]]; then
       print_warn "Battery health: ${health_pct}% (<80%) — service recommended"
+      _bat_status="warn"
+      _bat_msg="health below 80%"
     fi
   fi
-
   if [[ -n "$cycles" && "$cycles" -gt 1000 ]]; then
     print_warn "Cycle count: $cycles (>1000)"
+    _bat_status="warn"
+    _bat_msg="${_bat_msg:+$_bat_msg, }cycles >1000"
   fi
+  json_result "battery" "$_bat_status" "${health_pct:----}%" "${_bat_msg:-$cycles cycles}"
 
   $QUIET && return
 
@@ -294,10 +318,13 @@ check_thermal() {
 
   if [[ -n "$cpu_limit" && "$cpu_limit" -lt 100 ]]; then
     print_warn "CPU throttled: speed limit at ${cpu_limit}%"
+    json_result "thermal" "warn" "${cpu_limit}% speed limit" "CPU throttled"
   elif [[ -n "$pressure" && "$pressure" != "0" && "$pressure" != "Nominal" ]]; then
     print_warn "Thermal pressure: $pressure (not Nominal)"
+    json_result "thermal" "warn" "$pressure" "thermal pressure elevated"
   else
     $QUIET || print_ok "No thermal throttling detected"
+    json_result "thermal" "ok" "Normal" ""
   fi
 
   $QUIET && return
@@ -330,6 +357,9 @@ check_memory() {
 
   if [[ -n "$swap_used_mb" && "${swap_mb_int:-0}" -gt "$swap_mb_threshold" ]]; then
     print_warn "Swap usage: ${swap_used_gb}GB (>2GB) — memory pressure high"
+    json_result "memory" "warn" "${swap_used_gb}GB swap" "memory pressure high"
+  else
+    json_result "memory" "ok" "${swap_used_gb:-0}GB swap" ""
   fi
 
   $QUIET && return
@@ -363,6 +393,9 @@ check_processes() {
   if [[ -n "$high_cpu_pct" && "$high_cpu_pct" -gt 80 ]]; then
     local proc_name=${high_cpu_path##*/}
     print_warn "High CPU: $proc_name at ${high_cpu_pct_full}%"
+    json_result "processes" "warn" "${high_cpu_pct_full}% CPU" "$proc_name"
+  else
+    json_result "processes" "ok" "" ""
   fi
 
   $QUIET && return
@@ -393,12 +426,14 @@ check_docker() {
 
   if ! command -v docker &>/dev/null; then
     print_info "Docker not installed — install from https://www.docker.com"
+    json_result "docker" "unavailable" "" "Docker not installed"
     return
   fi
 
   local ps_out
   if ! ps_out=$(docker ps 2>&1); then
     print_info "Docker not running"
+    json_result "docker" "unavailable" "" "Docker not running"
     return
   fi
 
@@ -407,7 +442,9 @@ check_docker() {
 
   if [[ "$running" -eq 0 ]]; then
     print_ok "No containers running"
+    json_result "docker" "ok" "0 containers" ""
   else
+    json_result "docker" "ok" "$running containers" ""
     print_info "Running containers: $running"
     echo "$ps_out" | tail -n +2 | while IFS= read -r line; do
       local image status
@@ -448,6 +485,7 @@ check_timemachine() {
 
   if [[ -z "$latest_backup" && -z "$dest_info" ]]; then
     print_info "Time Machine not configured"
+    json_result "timemachine" "unavailable" "" "not configured"
     return
   fi
 
@@ -469,14 +507,17 @@ check_timemachine() {
         local _ds; [[ $age_days -eq 1 ]] && _ds="" || _ds="s"
         age_display="${age_days} day${_ds} ago"
         print_warn "Last backup: $age_display — Time Machine may not be running"
+        json_result "timemachine" "warn" "$age_display" "backup overdue"
       else
         local _hs; [[ $age_hours -eq 1 ]] && _hs="" || _hs="s"
         age_display="${age_hours} hour${_hs} ago"
         print_ok "Last backup: $age_display ($date_part $formatted_time)"
+        json_result "timemachine" "ok" "$age_display" ""
       fi
     fi
   else
     print_info "Last backup: unknown"
+    json_result "timemachine" "ok" "unknown" ""
   fi
 
   $QUIET && return
@@ -523,12 +564,14 @@ check_updates() {
 
   if [[ "$count" -gt 0 ]]; then
     print_warn "$count update$( [[ $count -eq 1 ]] || echo s ) available"
+    json_result "updates" "warn" "$count available" ""
     $QUIET && return
     echo "$updates" | while IFS= read -r line; do
       [[ -n "$line" ]] && print_info "$line"
     done
   else
     print_ok "No updates available"
+    json_result "updates" "ok" "up to date" ""
   fi
 }
 
@@ -550,6 +593,9 @@ check_wifi() {
 
   if [[ -n "$signal_dbm" && "$signal_dbm" -lt -70 ]]; then
     print_warn "Wi-Fi signal weak: ${signal_dbm} dBm (<-70 dBm)"
+    json_result "wifi" "warn" "${signal_dbm} dBm" "signal weak"
+  else
+    json_result "wifi" "ok" "${signal_dbm:----} dBm" ""
   fi
 
   $QUIET && return
@@ -575,10 +621,20 @@ check_security() {
   sip_status=$(csrutil status 2>/dev/null)
 
   # Threshold checks for --quiet
+  local _sec_status="ok" _sec_msg=""
   shopt -s nocasematch
-  [[ "$fv_status" == *"filevault is off"* ]] && print_warn "FileVault: OFF — disk is not encrypted"
-  [[ "$sip_status" == *"disabled"* ]]        && print_warn "SIP: DISABLED"
+  if [[ "$fv_status" == *"filevault is off"* ]]; then
+    print_warn "FileVault: OFF — disk is not encrypted"
+    _sec_status="warn"
+    _sec_msg="FileVault off"
+  fi
+  if [[ "$sip_status" == *"disabled"* ]]; then
+    print_warn "SIP: DISABLED"
+    _sec_status="warn"
+    _sec_msg="${_sec_msg:+$_sec_msg, }SIP disabled"
+  fi
   shopt -u nocasematch
+  json_result "security" "$_sec_status" "" "${_sec_msg:-FileVault on, SIP enabled}"
 
   $QUIET && return
 
