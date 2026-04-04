@@ -40,7 +40,7 @@
       <div class="flex items-center gap-4">
         <a href="#modules" class="text-muted hover:text-white transition-colors">Modules</a>
         <a href="#install" class="text-muted hover:text-white transition-colors">Install</a>
-        <a href="https://github.com/onurtellioglu/ctscan" class="text-muted hover:text-white transition-colors" target="_blank"><i class="ph ph-github-logo"></i></a>
+        <a href="https://github.com/onurtellioglu/ctscan" class="text-muted hover:text-white transition-colors" target="_blank" rel="noopener noreferrer" aria-label="GitHub"><i class="ph ph-github-logo"></i></a>
       </div>
     </div>
   </nav>
@@ -53,10 +53,10 @@
         macOS system health. Terminal-native. 14 checks, zero friction.
       </p>
       <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <button class="bg-white text-bg font-semibold px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer" onclick="navigator.clipboard.writeText('brew install ctscan'); this.textContent='Copied!'; setTimeout(() => this.textContent='Install via Brew', 2000);">
+        <button class="bg-white text-bg font-semibold px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer" onclick="copyToClipboard(this, 'brew install ctscan')">
           <i class="ph ph-package mr-2"></i>Install via Brew
         </button>
-        <a href="https://github.com/onurtellioglu/ctscan" target="_blank" class="border border-surface-lighter text-body px-6 py-3 rounded-lg hover:bg-surface-light transition-colors inline-flex items-center">
+        <a href="https://github.com/onurtellioglu/ctscan" target="_blank" rel="noopener noreferrer" class="border border-surface-lighter text-body px-6 py-3 rounded-lg hover:bg-surface-light transition-colors inline-flex items-center">
           <i class="ph ph-github-logo mr-2"></i>on GitHub
         </a>
       </div>
