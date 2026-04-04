@@ -117,5 +117,81 @@
       </div>
     </div>
   </section>
+
+  <!-- Installation -->
+  <section class="py-16 px-4">
+    <div class="max-w-2xl mx-auto text-center">
+      <p class="text-xs uppercase tracking-widest text-muted mb-6">Get Started</p>
+      <h2 class="text-2xl font-bold text-white mb-6">Install ctscan</h2>
+      <div class="bg-surface border border-surface-lighter rounded-lg p-4 mb-4 relative group text-left">
+        <button class="absolute top-3 right-3 text-muted hover:text-white text-xs px-3 py-1 rounded bg-surface-lighter transition-colors" onclick="copyToClipboard(this, 'brew tap onurtellioglu/ctscan && brew install ctscan')">Copy</button>
+        <code class="text-sm font-mono text-green-terminal">brew tap onurtellioglu/ctscan && brew install ctscan</code>
+      </div>
+      <div class="bg-surface border border-surface-lighter rounded-lg p-4 relative group text-left">
+        <button class="absolute top-3 right-3 text-muted hover:text-white text-xs px-3 py-1 rounded bg-surface-lighter transition-colors" onclick="copyToClipboard(this, 'git clone https://github.com/onur-tellioglu/ctscan')">Copy</button>
+        <code class="text-sm font-mono text-body">git clone https://github.com/onur-tellioglu/ctscan</code>
+      </div>
+      <p class="text-muted text-sm mt-6">
+        <strong class="text-white">Requirements:</strong> macOS · Bash 3.2+ ·
+        <span class="inline-block"><code class="text-xs bg-surface-lighter px-1 rounded">smartmontools</code> (optional, for SSD wear)</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- Module Reference -->
+  <section class="py-16 px-4">
+    <div class="max-w-4xl mx-auto">
+      <p class="text-xs uppercase tracking-widest text-muted mb-6 text-center">Reference</p>
+      <h2 class="text-2xl font-bold text-white mb-8 text-center">Modules</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-surface-lighter">
+              <th class="text-left py-3 px-4 text-muted font-medium uppercase tracking-wider text-xs">Module</th>
+              <th class="text-left py-3 px-4 text-muted font-medium uppercase tracking-wider text-xs">Description</th>
+              <th class="text-left py-3 px-4 text-muted font-medium uppercase tracking-wider text-xs hidden sm:table-cell">Warning Condition</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-surface-lighter">
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">identity</td><td class="py-3 px-4 text-muted">Hostname, model, macOS version, uptime</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">brew</td><td class="py-3 px-4 text-muted">Homebrew formula &amp; cask counts, outdated pkgs</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Outdated packages detected</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">agents</td><td class="py-3 px-4 text-muted">Launch agents &amp; daemon counts</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">storage</td><td class="py-3 px-4 text-muted">Disk usage, cache size</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Disk nearly full</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">ssd</td><td class="py-3 px-4 text-muted">SSD wear level (requires <code class="text-xs bg-surface-lighter px-1 rounded">smartmontools</code>)</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High wear level</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">battery</td><td class="py-3 px-4 text-muted">Health %, cycle count, current charge</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Low health / high cycles</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">thermal</td><td class="py-3 px-4 text-muted">Thermal throttling, GPU model</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Throttling detected</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">memory</td><td class="py-3 px-4 text-muted">Swap usage, memory free %, total RAM</td><td class="py-3 px-4 text-muted hidden sm:table-cell">High swap / low memory</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">processes</td><td class="py-3 px-4 text-muted">Top 5 by CPU and memory</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Process &gt;80% CPU</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">docker</td><td class="py-3 px-4 text-muted">Running containers, disk usage</td><td class="py-3 px-4 text-muted hidden sm:table-cell">—</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">timemachine</td><td class="py-3 px-4 text-muted">Last backup age and status</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Backup &gt;24h old</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">updates</td><td class="py-3 px-4 text-muted">Pending macOS software updates</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Updates available</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">wifi</td><td class="py-3 px-4 text-muted">Signal strength (dBm), network name</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Weak signal</td></tr>
+            <tr class="hover:bg-surface-light/50"><td class="py-3 px-4 font-mono text-green-terminal">security</td><td class="py-3 px-4 text-muted">FileVault, SIP, Gatekeeper status</td><td class="py-3 px-4 text-muted hidden sm:table-cell">Any disabled</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8 px-4 border-t border-surface-lighter">
+    <div class="max-w-4xl mx-auto text-center text-muted text-sm">
+      <p>MIT License · <a href="https://github.com/onurtellioglu/ctscan" class="text-body hover:underline">onurtellioglu/ctscan</a></p>
+      <div class="mt-2 flex justify-center gap-4">
+        <a href="https://github.com/onurtellioglu/ctscan" class="hover:text-white transition-colors"><i class="ph ph-github-logo mr-1"></i>GitHub</a>
+        <a href="https://github.com/onurtellioglu/ctscan/issues" class="hover:text-white transition-colors"><i class="ph ph-bug mr-1"></i>Report Issue</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyToClipboard(btn, text) {
+      navigator.clipboard.writeText(text).then(() => {
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = original, 2000);
+      });
+    }
+  </script>
 </body>
 </html>
