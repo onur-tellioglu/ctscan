@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.4] - 2026-04-04
+
+### Changed
+- Parallelized `system_profiler` calls (identity, thermal, wifi) — all three launch concurrently, modules read from pre-fetched globals
+- Parallelized `brew leaves` + `brew list --cask` invocations via background subshells
+- Replaced double-grep in `check_memory` with single awk pass for swap extraction (−1 fork)
+- Converted `run_modules` selection and skip loops from O(n²) nested `for` to O(n) `case` pattern matching
+
 ## [0.3.3] - 2026-04-04
 
 ### Changed

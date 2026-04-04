@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-VERSION="0.3.3"
+VERSION="0.3.4"
 
 # ──────────────────────────────────────────────
 # Color helpers
@@ -34,7 +34,11 @@ check_identity() {
   print_header "Identity"
   local hostname model os_ver
   hostname=$(scutil --get ComputerName 2>/dev/null || hostname)
-  model=$(system_profiler SPHardwareDataType 2>/dev/null | awk -F': ' '/Model Name/{print $2; exit}')
+  if [[ -n "${_SP_HARDWARE:-}" ]]; then
+    model=$(echo "$_SP_HARDWARE" | awk -F': ' '/Model Name/{print $2; exit}')
+  else
+    model=$(system_profiler SPHardwareDataType 2>/dev/null | awk -F': ' '/Model Name/{print $2; exit}')
+  fi
   os_ver=$(sw_vers -productVersion 2>/dev/null)
 
   $QUIET && return
@@ -63,12 +67,19 @@ check_brew() {
 
   $QUIET && return
 
+  local leaves casks
+  leaves=$(mktemp "${TMPDIR:-/tmp}/ctscan_leaves.XXXXXX")
+  casks=$(mktemp "${TMPDIR:-/tmp}/ctscan_casks.XXXXXX")
+  brew leaves 2>/dev/null > "$leaves" &
+  brew list --cask 2>/dev/null > "$casks" &
+  wait
   echo
   color "0;32" "  Formulae (leaves):"
-  brew leaves 2>/dev/null | xargs -n 5 | while IFS= read -r line; do print_info "$line"; done
+  xargs -n 5 < "$leaves" | while IFS= read -r line; do print_info "$line"; done
   echo
   color "0;32" "  Casks:"
-  brew list --cask 2>/dev/null | xargs -n 5 | while IFS= read -r line; do print_info "$line"; done
+  xargs -n 5 < "$casks" | while IFS= read -r line; do print_info "$line"; done
+  rm -f "$leaves" "$casks"
 
   if [[ "$outdated" -eq 0 ]]; then
     print_ok "All packages up to date"
@@ -236,7 +247,11 @@ check_thermal() {
   echo "$therm_out" | grep -v '^$' | while IFS= read -r line; do print_info "$line"; done
 
   print_info "GPU Activity Check:"
-  system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Vendor" | while IFS= read -r line; do print_info "$line"; done
+  if [[ -n "${_SP_DISPLAYS:-}" ]]; then
+    echo "$_SP_DISPLAYS" | grep -i "Vendor" | while IFS= read -r line; do print_info "$line"; done
+  else
+    system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Vendor" | while IFS= read -r line; do print_info "$line"; done
+  fi
 }
 
 # ──────────────────────────────────────────────
@@ -248,7 +263,7 @@ check_memory() {
   local swap_out swap_used_gb swap_used_mb
   swap_out=$(sysctl vm.swapusage 2>/dev/null)
   # Example: vm.swapusage: total = 2048.00M  used = 512.00M  free = 1536.00M
-  swap_used_mb=$(echo "$swap_out" | grep -oE 'used = [0-9.]+M' | grep -oE '[0-9.]+')
+  swap_used_mb=$(sysctl vm.swapusage 2>/dev/null | awk -F'used = ' '{split($2,a," "); gsub(/M/,"",a[1]); print a[1]}')
   swap_used_gb=$(awk "BEGIN{printf \"%.2f\", ${swap_used_mb:-0}/1024}")
 
   local swap_mb_int=${swap_used_mb%.*}
@@ -458,7 +473,11 @@ check_wifi() {
   print_header "Wi-Fi"
 
   local wifi_out signal_line signal_dbm
-  wifi_out=$(system_profiler SPAirPortDataType 2>/dev/null)
+  if [[ -n "${_SP_AIRPORT:-}" ]]; then
+    wifi_out="$_SP_AIRPORT"
+  else
+    wifi_out=$(system_profiler SPAirPortDataType 2>/dev/null)
+  fi
 
   signal_line=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1)
   signal_dbm=$(echo "$signal_line" | grep -oE -- '-[0-9]+ dBm' | head -1 | grep -oE -- '-[0-9]+')
@@ -604,25 +623,41 @@ run_modules() {
   local to_run=()
 
   if [[ ${#SELECTED_MODULES[@]} -gt 0 ]]; then
-    # Use explicit selection (preserving ALL_MODULES order)
+    # Use explicit selection (preserving ALL_MODULES order) — O(n) via case
+    local sel_pat="|"
+    for s in "${SELECTED_MODULES[@]}"; do sel_pat+="$s|"; done
     for m in "${ALL_MODULES[@]}"; do
-      for s in "${SELECTED_MODULES[@]}"; do
-        [[ "$m" == "$s" ]] && to_run+=("$m") && break
-      done
+      case "$sel_pat" in *"|$m|"*) to_run+=("$m");; esac
     done
   else
     to_run=("${ALL_MODULES[@]}")
   fi
 
-  # Apply --skip
+  # Apply --skip — O(n) via case
+  local skip_pat="|"
+  for sk in "${SKIP_MODULES[@]}"; do skip_pat+="$sk|"; done
   local final=()
   for m in "${to_run[@]}"; do
-    local skip=false
-    for sk in "${SKIP_MODULES[@]}"; do
-      [[ "$m" == "$sk" ]] && skip=true && break
-    done
-    $skip || final+=("$m")
+    case "$skip_pat" in *"|${m}|"*) continue;; esac
+    final+=("$m")
   done
+
+  # F10: Parallelize system_profiler calls (identity, thermal, wifi)
+  local _sp_dir; _sp_dir=$(mktemp -d "${TMPDIR:-/tmp}/ctscan.XXXXXXXX")
+  local _need_hw=false _need_wifi=false _need_gpu=false
+  for f in "${final[@]}"; do
+    [[ "$f" == "identity" ]] && _need_hw=true
+    [[ "$f" == "wifi" ]] && _need_wifi=true
+    [[ "$f" == "thermal" ]] && _need_gpu=true
+  done
+  $_need_hw && system_profiler SPHardwareDataType > "$_sp_dir/hw" 2>/dev/null &
+  $_need_wifi && system_profiler SPAirPortDataType > "$_sp_dir/airport" 2>/dev/null &
+  $_need_gpu && system_profiler SPDisplaysDataType > "$_sp_dir/displays" 2>/dev/null &
+  if $_need_hw || $_need_wifi || $_need_gpu; then wait; fi
+  $_need_hw && _SP_HARDWARE=$(< "$_sp_dir/hw")
+  $_need_wifi && _SP_AIRPORT=$(< "$_sp_dir/airport")
+  $_need_gpu && _SP_DISPLAYS=$(< "$_sp_dir/displays")
+  rm -rf "$_sp_dir"
 
   for mod in "${final[@]}"; do
     "check_${mod}"
