@@ -66,6 +66,7 @@ Status dots get a `box-shadow: 0 0 6px <color>@50%` glow in both modes.
 | Secondary | `#94a3b8` (slate-400) | `#334155` (slate-700) |
 | Label / uppercase | `#94a3b8` | `#334155` |
 | Active nav item | `accent.primary` | `accent.primary` |
+| Inactive nav item | `#64748b` (slate-500) | `#64748b` (slate-500) |
 
 ---
 
