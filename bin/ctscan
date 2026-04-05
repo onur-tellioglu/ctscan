@@ -383,14 +383,26 @@ check_memory() {
   local swap_mb_int=${swap_used_mb%.*}
   local swap_mb_threshold=2048  # 2GB
 
-  local ram_gb
+  local ram_gb page_size pages_active pages_wired pages_compressed used_gb
   ram_gb=$(sysctl -n hw.memsize 2>/dev/null | awk '{printf "%.0f", $1/1073741824}')
+  page_size=$(sysctl -n hw.pagesize 2>/dev/null)
+  local vm_stat_out
+  vm_stat_out=$(vm_stat 2>/dev/null)
+  pages_active=$(echo "$vm_stat_out"     | awk '/Pages active/{gsub(/\./,""); print $3+0}')
+  pages_wired=$(echo "$vm_stat_out"      | awk '/Pages wired down/{gsub(/\./,""); print $4+0}')
+  pages_compressed=$(echo "$vm_stat_out" | awk '/Pages occupied by compressor/{gsub(/\./,""); print $5+0}')
+  used_gb=$(awk -v a="${pages_active:-0}" -v w="${pages_wired:-0}" \
+               -v c="${pages_compressed:-0}" -v p="${page_size:-16384}" \
+            'BEGIN{printf "%.1f", (a+w+c)*p/1073741824}')
+
+  local _mem_value="${used_gb}GB / ${ram_gb}GB"
+  local _mem_msg="${swap_used_gb:-0}GB swap"
 
   if [[ -n "$swap_used_mb" && "${swap_mb_int:-0}" -gt "$swap_mb_threshold" ]]; then
     print_warn "Swap usage: ${swap_used_gb}GB (>2GB) — memory pressure high"
-    json_result "memory" "warn" "${swap_used_gb}GB swap" "${ram_gb:+${ram_gb}GB RAM}"
+    json_result "memory" "warn" "$_mem_value" "$_mem_msg"
   else
-    json_result "memory" "ok" "${swap_used_gb:-0}GB swap" "${ram_gb:+${ram_gb}GB RAM}"
+    json_result "memory" "ok" "$_mem_value" "$_mem_msg"
   fi
 
   $QUIET && return
