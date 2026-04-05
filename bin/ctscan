@@ -197,9 +197,9 @@ check_storage() {
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
       cache_size_gb=$(awk -v k="$cache_size_kb" 'BEGIN{printf "%.1f", k/1048576}')
       print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
-      json_result "storage" "warn" "$pct" "${cache_size_gb}GB cache (>5GB)"
+      json_result "storage" "warn" "$used / $total" "${cache_size_gb}GB cache (>5GB)"
     else
-      json_result "storage" "ok" "$pct" ""
+      json_result "storage" "ok" "$used / $total" ""
     fi
   fi
 
