@@ -313,7 +313,10 @@ check_battery() {
     _bat_status="warn"
     _bat_msg="${_bat_msg:+$_bat_msg, }cycles >1000"
   fi
-  json_result "battery" "$_bat_status" "${health_pct:----}%" "${_bat_msg:-$cycles cycles}"
+  local _cap_msg=""
+  [[ -n "$fcc_cap" && -n "$design_cap" ]] && _cap_msg="${fcc_cap}/${design_cap} mAh"
+  local _bat_detail="${cycles:+${cycles} cycles}${_cap_msg:+ · $_cap_msg}"
+  json_result "battery" "$_bat_status" "${health_pct:----}%" "${_bat_msg:-$_bat_detail}"
 
   $QUIET && return
 
@@ -622,24 +625,30 @@ check_wifi() {
   signal_line=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1)
   signal_dbm=$(echo "$signal_line" | grep -oE -- '-[0-9]+ dBm' | head -1 | grep -oE -- '-[0-9]+')
 
-  local ssid
-  ssid=$(echo "$wifi_out" | awk '/Current Network Information:/{getline; gsub(/^[[:space:]]+|:[[:space:]]*$/,"",$0); if (length($0)>0) {print; exit}}')
+  # Classify signal quality (macOS redacts SSID without wifi-info entitlement)
+  local signal_quality=""
+  if [[ -n "$signal_dbm" ]]; then
+    if   [[ "$signal_dbm" -ge -50 ]]; then signal_quality="Excellent"
+    elif [[ "$signal_dbm" -ge -60 ]]; then signal_quality="Good"
+    elif [[ "$signal_dbm" -ge -70 ]]; then signal_quality="Fair"
+    else                                    signal_quality="Weak"
+    fi
+  fi
 
   if [[ -n "$signal_dbm" && "$signal_dbm" -lt -70 ]]; then
     print_warn "Wi-Fi signal weak: ${signal_dbm} dBm (<-70 dBm)"
-    json_result "wifi" "warn" "${signal_dbm} dBm" "${ssid:-signal weak}"
+    json_result "wifi" "warn" "${signal_dbm} dBm" "${signal_quality}"
   else
-    json_result "wifi" "ok" "${signal_dbm:----} dBm" "${ssid:-}"
+    json_result "wifi" "ok" "${signal_dbm:----} dBm" "${signal_quality}"
   fi
 
   $QUIET && return
 
   local noise_dbm txrate
-  ssid=$(echo "$wifi_out" | awk '/Current Network Information:/{getline; gsub(/^[[:space:]]+|:[[:space:]]*$/,"",$0); if (length($0)>0) {print; exit}}')
   noise_dbm=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1 | grep -oE '\-[0-9]+ dBm' | tail -1 | grep -oE '\-[0-9]+')
   txrate=$(echo "$wifi_out" | grep -i "Transmit Rate" | head -1 | awk -F': ' '{print $2}' | xargs)
 
-  [[ -n "$ssid" ]]       && print_info "SSID:    $ssid"
+  [[ -n "$signal_quality" ]] && print_info "Signal:  $signal_quality (${signal_dbm} dBm)"
   [[ -n "$signal_dbm" ]] && print_info "Signal:  ${signal_dbm} dBm / Noise: ${noise_dbm} dBm"
   [[ -n "$txrate" ]]     && print_info "TX Rate: ${txrate} Mbps"
 }
