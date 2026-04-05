@@ -185,11 +185,26 @@ check_storage() {
   print_header "Storage"
 
   local cache_size_kb cache_size_gb
-  local total used avail pct _dfrest
-  read -r _dfrest total used avail pct _dfrest < <(df -H / 2>/dev/null | tail -1)
+  # On APFS the 'Used' column in df only counts the mounted volume (e.g. System).
+  # Actual used space = Total − Available, which correctly accounts for all volumes.
+  local total_k avail_k used_k _rest
+  read -r _rest total_k _rest avail_k _rest < <(df -k / 2>/dev/null | tail -1)
+  used_k=$(( total_k - avail_k ))
+  local pct=$(( used_k * 100 / total_k ))
+
+  _fmt_kb() {
+    awk -v k="$1" 'BEGIN{
+      if(k>=1073741824) printf "%.1fT",k/1073741824
+      else if(k>=1048576) printf "%.1fG",k/1048576
+      else printf "%.0fM",k/1024
+    }'
+  }
+  local used total
+  used=$(_fmt_kb "$used_k")
+  total=$(_fmt_kb "$total_k")
 
   # Disk summary line (always shown)
-  print_info "Disk: $used used / $total total ($pct full)"
+  print_info "Disk: $used used / $total total (${pct}% full)"
 
   # Cache threshold check (quiet mode warning)
   if [[ -d ~/Library/Caches ]]; then
