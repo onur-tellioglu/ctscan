@@ -123,11 +123,16 @@ check_brew() {
 
   local outdated
   outdated=$(brew outdated 2>/dev/null | wc -l | tr -d ' ')
+  local formulae_count casks_count
+  formulae_count=$(brew list --formula 2>/dev/null | wc -l | tr -d ' ')
+  casks_count=$(brew list --cask 2>/dev/null | wc -l | tr -d ' ')
+  local pkg_summary="${formulae_count} formulae, ${casks_count} casks"
+
   if [[ "$outdated" -gt 0 ]]; then
     print_warn "$outdated package(s) outdated — run: brew upgrade"
-    json_result "brew" "warn" "${outdated} outdated" "run: brew upgrade"
+    json_result "brew" "warn" "${outdated} outdated" "$pkg_summary"
   else
-    json_result "brew" "ok" "up to date" ""
+    json_result "brew" "ok" "up to date" "$pkg_summary"
   fi
 
   $QUIET && return
@@ -212,9 +217,9 @@ check_storage() {
     if [[ "$cache_size_kb" -gt 5242880 ]]; then
       cache_size_gb=$(awk -v k="$cache_size_kb" 'BEGIN{printf "%.1f", k/1048576}')
       print_warn "Cache total: ${cache_size_gb}GB (>5GB) — consider clearing ~/Library/Caches"
-      json_result "storage" "warn" "$used / $total" "${cache_size_gb}GB cache (>5GB)"
+      json_result "storage" "warn" "$used / $total" "${pct}% used · ${cache_size_gb}GB cache"
     else
-      json_result "storage" "ok" "$used / $total" ""
+      json_result "storage" "ok" "$used / $total" "${pct}% used"
     fi
   fi
 
@@ -375,11 +380,14 @@ check_memory() {
   local swap_mb_int=${swap_used_mb%.*}
   local swap_mb_threshold=2048  # 2GB
 
+  local ram_gb
+  ram_gb=$(sysctl -n hw.memsize 2>/dev/null | awk '{printf "%.0f", $1/1073741824}')
+
   if [[ -n "$swap_used_mb" && "${swap_mb_int:-0}" -gt "$swap_mb_threshold" ]]; then
     print_warn "Swap usage: ${swap_used_gb}GB (>2GB) — memory pressure high"
-    json_result "memory" "warn" "${swap_used_gb}GB swap" "memory pressure high"
+    json_result "memory" "warn" "${swap_used_gb}GB swap" "${ram_gb:+${ram_gb}GB RAM}"
   else
-    json_result "memory" "ok" "${swap_used_gb:-0}GB swap" ""
+    json_result "memory" "ok" "${swap_used_gb:-0}GB swap" "${ram_gb:+${ram_gb}GB RAM}"
   fi
 
   $QUIET && return
@@ -582,16 +590,19 @@ check_updates() {
   local count
   count=$(echo "$updates" | grep -c '[^[:space:]]' 2>/dev/null || true)
 
+  local os_ver
+  os_ver=$(sw_vers -productVersion 2>/dev/null)
+
   if [[ "$count" -gt 0 ]]; then
     print_warn "$count update$( [[ $count -eq 1 ]] || echo s ) available"
-    json_result "updates" "warn" "$count available" ""
+    json_result "updates" "warn" "$count available" "macOS ${os_ver}"
     $QUIET && return
     echo "$updates" | while IFS= read -r line; do
       [[ -n "$line" ]] && print_info "$line"
     done
   else
     print_ok "No updates available"
-    json_result "updates" "ok" "up to date" ""
+    json_result "updates" "ok" "up to date" "macOS ${os_ver}"
   fi
 }
 
@@ -611,16 +622,19 @@ check_wifi() {
   signal_line=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1)
   signal_dbm=$(echo "$signal_line" | grep -oE -- '-[0-9]+ dBm' | head -1 | grep -oE -- '-[0-9]+')
 
+  local ssid
+  ssid=$(echo "$wifi_out" | awk '/Current Network Information:/{getline; gsub(/^[[:space:]]+|:[[:space:]]*$/,"",$0); if (length($0)>0) {print; exit}}')
+
   if [[ -n "$signal_dbm" && "$signal_dbm" -lt -70 ]]; then
     print_warn "Wi-Fi signal weak: ${signal_dbm} dBm (<-70 dBm)"
-    json_result "wifi" "warn" "${signal_dbm} dBm" "signal weak"
+    json_result "wifi" "warn" "${signal_dbm} dBm" "${ssid:-signal weak}"
   else
-    json_result "wifi" "ok" "${signal_dbm:----} dBm" ""
+    json_result "wifi" "ok" "${signal_dbm:----} dBm" "${ssid:-}"
   fi
 
   $QUIET && return
 
-  local ssid noise_dbm txrate
+  local noise_dbm txrate
   ssid=$(echo "$wifi_out" | awk '/Current Network Information:/{getline; gsub(/^[[:space:]]+|:[[:space:]]*$/,"",$0); if (length($0)>0) {print; exit}}')
   noise_dbm=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1 | grep -oE '\-[0-9]+ dBm' | tail -1 | grep -oE '\-[0-9]+')
   txrate=$(echo "$wifi_out" | grep -i "Transmit Rate" | head -1 | awk -F': ' '{print $2}' | xargs)
@@ -654,7 +668,8 @@ check_security() {
     _sec_msg="${_sec_msg:+$_sec_msg, }SIP disabled"
   fi
   shopt -u nocasematch
-  json_result "security" "$_sec_status" "" "${_sec_msg:-FileVault on, SIP enabled}"
+  local _sec_val; [[ "$_sec_status" == "ok" ]] && _sec_val="protected" || _sec_val="issues found"
+  json_result "security" "$_sec_status" "$_sec_val" "${_sec_msg:-FileVault on, SIP enabled}"
 
   $QUIET && return
 
