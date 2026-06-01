@@ -344,7 +344,7 @@ check_storage() {
     local _total_reclaim_kb=0
     local i
     for i in "${!_rlabel[@]}"; do
-      local _sz
+      local _sz _padded_sz
       _sz=$(_fmt_kb "${_rkb[$i]}")
       printf -v _padded_sz "%8s" "$_sz"
       print_info "$(printf '%s  %-28s  [%s]  %s' "$_padded_sz" "${_rlabel[$i]}" "${_rtag[$i]}" "${_rhint[$i]}")"
