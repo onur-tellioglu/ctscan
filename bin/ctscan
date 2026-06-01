@@ -306,7 +306,7 @@ check_storage() {
 
   # Docker reclaimable space
   local _docker_reclaim_kb=0
-  if command -v docker &>/dev/null && docker ps &>/dev/null 2>&1; then
+  if command -v docker &>/dev/null && docker ps &>/dev/null; then
     local _docker_df
     _docker_df=$(docker system df 2>/dev/null)
     if [[ -n "$_docker_df" ]]; then
