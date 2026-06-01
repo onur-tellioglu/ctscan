@@ -308,12 +308,17 @@ check_storage() {
       local _docker_reclaim_gb
       _docker_reclaim_gb=$(echo "$_docker_df" | awk '
         /^Images|^Containers|^Local Volumes|^Build Cache/ {
-          # field 6 is RECLAIMABLE, e.g. "1.2GB" or "512MB" or "0B"
-          v=$6
-          gsub(/\(.*\)/, "", v)
+          # Scan all fields; take the last one that looks like a size with a
+          # unit suffix and is NOT a parenthesised percentage like "(48%)".
+          last=""
+          for(i=1;i<=NF;i++){
+            if($i ~ /^[0-9.]+[BKMGTP]i?B?$/) last=$i
+          }
+          v=last
           if (v ~ /GB$/) { gsub(/GB$/,"",v); total+=v*1024*1024 }
           else if (v ~ /MB$/) { gsub(/MB$/,"",v); total+=v*1024 }
           else if (v ~ /kB$/) { gsub(/kB$/,"",v); total+=v }
+          else if (v ~ /B$/)  { gsub(/B$/,"",v);  total+=v/1024 }
         }
         END { printf "%d", total }
       ')
