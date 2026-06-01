@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0] - 2026-06-01
+
+### Added
+- storage: scan well-known reclaimable dev locations (CoreSimulator devices, Xcode iOS DeviceSupport, DerivedData, ~/.cache, CocoaPods, Homebrew cache, pnpm store, Docker reclaimable), each tagged safe-to-delete / regenerable / review, with a `Reclaimable: <total> | <safe-to-delete>` summary line (#3)
+
+### Changed
+- storage: read the real data volume (`/System/Volumes/Data`, with `/` fallback) for disk totals instead of the sealed system volume `df /` reports on modern macOS
+
 ## [0.3.8] - 2026-04-04
 
 ### Changed
