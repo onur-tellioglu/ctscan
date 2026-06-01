@@ -98,6 +98,10 @@ assert_exit0 "module updates runs without error"                          update
 # Storage disk summary line
 assert_output_contains "storage output contains Disk: line" "Disk:" storage
 
+# Extended reclaimable scan — must exit 0 on any machine (all paths optional)
+assert_exit0 "storage reclaimable scan exits 0 on any machine" storage
+assert_output_contains "storage output contains Reclaimable summary" "Reclaimable:" storage
+
 # ── --skip ────────────────────────────────────
 assert_output_excludes "--skip brew removes brew section"      "Homebrew"  --skip brew identity
 assert_output_excludes "--skip processes removes processes section" "Processes" --skip processes identity
