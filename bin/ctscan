@@ -318,7 +318,7 @@ check_storage() {
           # unit suffix and is NOT a parenthesised percentage like "(48%)".
           last=""
           for(i=1;i<=NF;i++){
-            if($i ~ /^[0-9.]+[BKMGTP]i?B?$/) last=$i
+            if($i ~ /^[0-9.]+[BkKMGTP]i?B?$/) last=$i
           }
           v=last
           if (v ~ /GB$/) { gsub(/GB$/,"",v); total+=v*1024*1024 }
