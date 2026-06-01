@@ -195,7 +195,9 @@ check_storage() {
   # On APFS the 'Used' column in df only counts the mounted volume (e.g. System).
   # Actual used space = Total − Available, which correctly accounts for all volumes.
   local total_k avail_k used_k _rest
-  read -r _rest total_k _rest avail_k _rest < <(df -k / 2>/dev/null | tail -1)
+  local _df_target="/"
+  [[ -d /System/Volumes/Data ]] && _df_target="/System/Volumes/Data"
+  read -r _rest total_k _rest avail_k _rest < <(df -k "$_df_target" 2>/dev/null | tail -1)
   used_k=$(( total_k - avail_k ))
   local pct=$(( used_k * 100 / total_k ))
 
