@@ -228,7 +228,7 @@ check_storage() {
   fi
 
   # ── Reclaimable developer paths ──────────────
-  _rlabel=(); _rkb=(); _rtag=(); _rhint=()
+  local -a _rlabel=() _rkb=() _rtag=() _rhint=()
 
   _add_reclaim() {
     # Usage: _add_reclaim <label> <path> <tag> <hint>
