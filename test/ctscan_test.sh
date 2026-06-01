@@ -179,7 +179,7 @@ assert m['status'] in ('ok','warn','error','unavailable'), 'invalid status: '+m[
 test_json_no_text_output() {
   local out
   out=$(bash bin/ctscan --format json 2>/dev/null)
-  if echo "$out" | grep -qE '(══|✓|⚠|·)'; then
+  if ! echo "$out" | python3 -c "import sys,json,re; raw=sys.stdin.read(); json.loads(raw); stripped=re.sub(r'\"[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*\"','\"\"',raw); sys.exit(1 if re.search(r'(══|✓|⚠|·)',stripped) else 0)"; then
     echo "FAIL: --format json output contains text formatting"
     return 1
   fi
