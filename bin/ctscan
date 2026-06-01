@@ -227,6 +227,104 @@ check_storage() {
     fi
   fi
 
+  # ── Reclaimable developer paths ──────────────
+  _rlabel=(); _rkb=(); _rtag=(); _rhint=()
+
+  _add_reclaim() {
+    # Usage: _add_reclaim <label> <path> <tag> <hint>
+    local lbl="$1" path="$2" tag="$3" hint="$4"
+    [[ -d "$path" ]] || return 0
+    local kb
+    kb=$(du -sk "$path" 2>/dev/null | awk '{print $1}')
+    [[ -z "$kb" || "$kb" -eq 0 ]] && return 0
+    _rlabel+=("$lbl"); _rkb+=("$kb"); _rtag+=("$tag"); _rhint+=("$hint")
+  }
+
+  # CoreSimulator devices
+  _add_reclaim "CoreSimulator/Devices" \
+    "$HOME/Library/Developer/CoreSimulator/Devices" \
+    "review" \
+    "run: xcrun simctl delete unavailable"
+
+  # Xcode iOS DeviceSupport (old OS versions)
+  _add_reclaim "Xcode iOS DeviceSupport" \
+    "$HOME/Library/Developer/Xcode/iOS DeviceSupport" \
+    "review" \
+    "delete old OS version folders manually"
+
+  # Xcode DerivedData
+  _add_reclaim "Xcode DerivedData" \
+    "$HOME/Library/Developer/Xcode/DerivedData" \
+    "regen" \
+    "run: rm -rf ~/Library/Developer/Xcode/DerivedData"
+
+  # Dotcache (uv, pnpm, puppeteer, pip, etc.)
+  _add_reclaim "~/.cache" \
+    "$HOME/.cache" \
+    "safe" \
+    "caches auto-regenerate on next use"
+
+  # CocoaPods cache
+  _add_reclaim "CocoaPods cache" \
+    "$HOME/Library/Caches/CocoaPods" \
+    "safe" \
+    "run: pod cache clean --all"
+
+  # Homebrew download cache
+  local _brew_cache=""
+  if command -v brew &>/dev/null; then
+    _brew_cache=$(brew --cache 2>/dev/null)
+  fi
+  if [[ -n "$_brew_cache" && -d "$_brew_cache" ]]; then
+    local _brew_kb
+    _brew_kb=$(du -sk "$_brew_cache" 2>/dev/null | awk '{print $1}')
+    if [[ -n "$_brew_kb" && "$_brew_kb" -gt 0 ]]; then
+      _rlabel+=("Homebrew cache"); _rkb+=("$_brew_kb")
+      _rtag+=("safe"); _rhint+=("run: brew cleanup")
+    fi
+  fi
+
+  # pnpm store
+  local _pnpm_store=""
+  if command -v pnpm &>/dev/null; then
+    _pnpm_store=$(pnpm store path 2>/dev/null)
+  fi
+  if [[ -n "$_pnpm_store" && -d "$_pnpm_store" ]]; then
+    local _pnpm_kb
+    _pnpm_kb=$(du -sk "$_pnpm_store" 2>/dev/null | awk '{print $1}')
+    if [[ -n "$_pnpm_kb" && "$_pnpm_kb" -gt 0 ]]; then
+      _rlabel+=("pnpm store"); _rkb+=("$_pnpm_kb")
+      _rtag+=("safe"); _rhint+=("run: pnpm store prune")
+    fi
+  fi
+
+  # Docker reclaimable space
+  local _docker_reclaim_kb=0
+  if command -v docker &>/dev/null && docker ps &>/dev/null 2>&1; then
+    local _docker_df
+    _docker_df=$(docker system df 2>/dev/null)
+    if [[ -n "$_docker_df" ]]; then
+      # Sum up the numeric GB/MB values from the RECLAIMABLE column
+      local _docker_reclaim_gb
+      _docker_reclaim_gb=$(echo "$_docker_df" | awk '
+        /^Images|^Containers|^Local Volumes|^Build Cache/ {
+          # field 6 is RECLAIMABLE, e.g. "1.2GB" or "512MB" or "0B"
+          v=$6
+          gsub(/\(.*\)/, "", v)
+          if (v ~ /GB$/) { gsub(/GB$/,"",v); total+=v*1024*1024 }
+          else if (v ~ /MB$/) { gsub(/MB$/,"",v); total+=v*1024 }
+          else if (v ~ /kB$/) { gsub(/kB$/,"",v); total+=v }
+        }
+        END { printf "%d", total }
+      ')
+      _docker_reclaim_kb="${_docker_reclaim_gb:-0}"
+      if [[ "$_docker_reclaim_kb" -gt 0 ]]; then
+        _rlabel+=("Docker reclaimable"); _rkb+=("$_docker_reclaim_kb")
+        _rtag+=("review"); _rhint+=("run: docker system prune")
+      fi
+    fi
+  fi
+
   $QUIET && return
 
   # Raw du output — cache and AppSupport merged, no sub-headers
