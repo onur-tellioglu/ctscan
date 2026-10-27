@@ -742,7 +742,11 @@ check_updates() {
   print_header "Updates"
 
   local su_out
-  su_out=$(softwareupdate -l 2>&1)
+  if [[ -n "${_SU_LIST:-}" ]]; then
+    su_out="$_SU_LIST"
+  else
+    su_out=$(softwareupdate -l 2>&1)
+  fi
 
   # Filter out noise lines
   local updates
@@ -1000,21 +1004,24 @@ run_modules() {
     final+=("$m")
   done
 
-  # F10: Parallelize system_profiler calls (identity, thermal, wifi)
+  # F10: Parallelize slow collectors (identity, thermal, wifi, updates)
   local _sp_dir; _sp_dir=$(mktemp -d "${TMPDIR:-/tmp}/ctscan.XXXXXXXX")
-  local _need_hw=false _need_wifi=false _need_gpu=false
+  local _need_hw=false _need_wifi=false _need_gpu=false _need_su=false
   for f in "${final[@]}"; do
     [[ "$f" == "identity" ]] && _need_hw=true
     [[ "$f" == "wifi" ]] && _need_wifi=true
     [[ "$f" == "thermal" ]] && _need_gpu=true
+    [[ "$f" == "updates" ]] && _need_su=true
   done
   $_need_hw && system_profiler SPHardwareDataType > "$_sp_dir/hw" 2>/dev/null &
   $_need_wifi && system_profiler SPAirPortDataType > "$_sp_dir/airport" 2>/dev/null &
   $_need_gpu && system_profiler SPDisplaysDataType > "$_sp_dir/displays" 2>/dev/null &
-  if $_need_hw || $_need_wifi || $_need_gpu; then wait; fi
+  $_need_su && softwareupdate -l > "$_sp_dir/su" 2>&1 &
+  if $_need_hw || $_need_wifi || $_need_gpu || $_need_su; then wait; fi
   $_need_hw && _SP_HARDWARE=$(< "$_sp_dir/hw")
   $_need_wifi && _SP_AIRPORT=$(< "$_sp_dir/airport")
   $_need_gpu && _SP_DISPLAYS=$(< "$_sp_dir/displays")
+  $_need_su && _SU_LIST=$(< "$_sp_dir/su")
   rm -rf "$_sp_dir"
 
   for mod in "${final[@]}"; do
