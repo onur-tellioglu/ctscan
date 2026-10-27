@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- security: report Gatekeeper status and warn when it is disabled
+
+### Fixed
+- battery: health and cycle count were missing on macOS 26+ because `ioreg` now prefixes keys with tree glyphs and no longer exposes `FccComp1`; fall back to `NominalChargeCapacity`
+- thermal: show the GPU model and core count instead of only the vendor id
+- timemachine: read the last backup from recorded snapshot dates when the destination disk is not mounted, instead of reporting "unknown"
+- wifi: print the signal once (quality, dBm and noise on one line)
+- tests: the `--version` assertion now reads the expected version from the script
+
+### Changed
+- updates: `softwareupdate -l` runs in parallel with the `system_profiler` prefetch, roughly halving a full scan
+
 ## [0.4.0] - 2026-06-01
 
 ### Added
