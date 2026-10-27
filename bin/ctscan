@@ -493,12 +493,18 @@ check_thermal() {
   # Speed limits (filter noisy "Note:" lines)
   echo "$therm_out" | grep -v '^$' | grep -v '^Note:' | while IFS= read -r line; do print_info "$line"; done
 
-  print_info "GPU Activity Check:"
+  local displays_out
   if [[ -n "${_SP_DISPLAYS:-}" ]]; then
-    echo "$_SP_DISPLAYS" | grep -i "Vendor" | while IFS= read -r line; do print_info "$line"; done
+    displays_out="$_SP_DISPLAYS"
   else
-    system_profiler SPDisplaysDataType 2>/dev/null | grep -i "Vendor" | while IFS= read -r line; do print_info "$line"; done
+    displays_out=$(system_profiler SPDisplaysDataType 2>/dev/null)
   fi
+  # One line per GPU: "Apple M4 (10 cores)"
+  echo "$displays_out" | awk -F': ' '
+    /Chipset Model:/         { if (gpu != "") print gpu; gpu=$2 }
+    /Total Number of Cores:/ { gpu=gpu " (" $2 " cores)" }
+    END                      { if (gpu != "") print gpu }
+  ' | while IFS= read -r gpu; do print_info "GPU:     $gpu"; done
 }
 
 # ──────────────────────────────────────────────
