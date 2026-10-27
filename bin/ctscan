@@ -415,13 +415,17 @@ check_battery() {
   local ioreg_out
   ioreg_out=$(ioreg -r -c AppleSmartBattery 2>/dev/null)
 
-  cycles=$(echo "$ioreg_out" | grep -E '^\s+"CycleCount"' | awk '{print $NF}')
+  # Top-level keys are prefixed with "|" tree glyphs on newer macOS, so match anywhere
+  cycles=$(echo "$ioreg_out" | grep -oE '"CycleCount" = [0-9]+' | awk '{print $NF}' | head -1)
   local design_cap fcc_cap
   # DesignCapacity and FccComp1 live inside the nested BatteryData dict — match anywhere
   design_cap=$(echo "$ioreg_out" | grep -o '"DesignCapacity"=[0-9]*' | cut -d= -f2 | head -1)
   fcc_cap=$(echo "$ioreg_out"    | grep -o '"FccComp1"=[0-9]*'      | cut -d= -f2 | head -1)
+  # macOS 26+ dropped FccComp1; NominalChargeCapacity is what System Settings reports
+  [[ -z "$fcc_cap" ]] && \
+    fcc_cap=$(echo "$ioreg_out" | grep -o '"NominalChargeCapacity"=[0-9]*' | cut -d= -f2 | head -1)
 
-  # Precise health: FccComp1 / DesignCapacity
+  # Precise health: full charge capacity / DesignCapacity
   local health_pct=""
   if [[ -n "$fcc_cap" && -n "$design_cap" && "$design_cap" -gt 0 ]]; then
     health_pct=$(awk -v f="$fcc_cap" -v d="$design_cap" 'BEGIN{printf "%.1f", f/d*100}')

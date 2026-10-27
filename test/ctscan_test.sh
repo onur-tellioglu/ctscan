@@ -99,6 +99,12 @@ assert_exit0 "module updates runs without error"                          update
 # Storage disk summary line
 assert_output_contains "storage output contains Disk: line" "Disk:" storage
 
+# Battery health and cycle count (laptops only)
+if [[ "$(ioreg -r -c AppleSmartBattery 2>/dev/null)" == *CycleCount* ]]; then
+  assert_output_contains "battery output contains Health: line" "Health:" --no-color battery
+  assert_output_contains "battery output contains cycle count"  "cycles"  --no-color battery
+fi
+
 # Extended reclaimable scan — must exit 0 on any machine (all paths optional).
 # The Reclaimable: summary line is only printed when at least one non-zero
 # candidate path exists; do NOT assert its presence (fails on clean CI).
