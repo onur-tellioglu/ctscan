@@ -799,8 +799,7 @@ check_wifi() {
   noise_dbm=$(echo "$wifi_out" | grep -i "Signal / Noise" | head -1 | grep -oE '\-[0-9]+ dBm' | tail -1 | grep -oE '\-[0-9]+')
   txrate=$(echo "$wifi_out" | grep -i "Transmit Rate" | head -1 | awk -F': ' '{print $2}' | xargs)
 
-  [[ -n "$signal_quality" ]] && print_info "Signal:  $signal_quality (${signal_dbm} dBm)"
-  [[ -n "$signal_dbm" ]] && print_info "Signal:  ${signal_dbm} dBm / Noise: ${noise_dbm} dBm"
+  [[ -n "$signal_dbm" ]] && print_info "Signal:  $signal_quality (${signal_dbm} dBm, noise ${noise_dbm:-?} dBm)"
   [[ -n "$txrate" ]]     && print_info "TX Rate: ${txrate} Mbps"
 }
 

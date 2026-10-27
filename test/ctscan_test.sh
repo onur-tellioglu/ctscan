@@ -111,6 +111,14 @@ assert_output_contains "thermal output names the GPU" "GPU:" --no-color thermal
 # Gatekeeper is listed in the README, so security must report it
 assert_output_contains "security output contains Gatekeeper" "Gatekeeper" --no-color security
 
+# Wi-Fi signal is printed once
+wifi_signal_lines=$("$SCRIPT" --no-color wifi 2>&1 | grep -c "Signal:" || true)
+if [[ "$wifi_signal_lines" -le 1 ]]; then
+  green "PASS: wifi prints at most one Signal: line"; ((PASS++))
+else
+  red "FAIL: wifi prints $wifi_signal_lines Signal: lines (expected at most 1)"; ((FAIL++))
+fi
+
 # Extended reclaimable scan — must exit 0 on any machine (all paths optional).
 # The Reclaimable: summary line is only printed when at least one non-zero
 # candidate path exists; do NOT assert its presence (fails on clean CI).
