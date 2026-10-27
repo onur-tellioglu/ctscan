@@ -119,6 +119,11 @@ else
   red "FAIL: wifi prints $wifi_signal_lines Signal: lines (expected at most 1)"; ((FAIL++))
 fi
 
+# Time Machine falls back to recorded snapshot dates when the disk is not mounted
+if [[ "$(defaults read /Library/Preferences/com.apple.TimeMachine Destinations 2>/dev/null)" == *SnapshotDates* ]]; then
+  assert_output_excludes "timemachine reports a date when snapshots are recorded" "Last backup: unknown" --no-color timemachine
+fi
+
 # Extended reclaimable scan — must exit 0 on any machine (all paths optional).
 # The Reclaimable: summary line is only printed when at least one non-zero
 # candidate path exists; do NOT assert its presence (fails on clean CI).
