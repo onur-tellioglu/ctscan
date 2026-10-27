@@ -105,6 +105,9 @@ if [[ "$(ioreg -r -c AppleSmartBattery 2>/dev/null)" == *CycleCount* ]]; then
   assert_output_contains "battery output contains cycle count"  "cycles"  --no-color battery
 fi
 
+# GPU model, not just the vendor id
+assert_output_contains "thermal output names the GPU" "GPU:" --no-color thermal
+
 # Extended reclaimable scan — must exit 0 on any machine (all paths optional).
 # The Reclaimable: summary line is only printed when at least one non-zero
 # candidate path exists; do NOT assert its presence (fails on clean CI).
