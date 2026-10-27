@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.4.1] - 2026-10-27
 
 ### Added
 - security: report Gatekeeper status and warn when it is disabled
