@@ -810,9 +810,10 @@ check_wifi() {
 check_security() {
   print_header "Security"
 
-  local fv_status sip_status
+  local fv_status sip_status gk_status
   fv_status=$(fdesetup status 2>/dev/null)
   sip_status=$(csrutil status 2>/dev/null)
+  gk_status=$(spctl --status 2>/dev/null)
 
   # Threshold checks for --quiet
   local _sec_status="ok" _sec_msg=""
@@ -827,15 +828,20 @@ check_security() {
     _sec_status="warn"
     _sec_msg="${_sec_msg:+$_sec_msg, }SIP disabled"
   fi
+  if [[ "$gk_status" == *"disabled"* ]]; then
+    print_warn "Gatekeeper: DISABLED — unsigned apps can run"
+    _sec_status="warn"
+    _sec_msg="${_sec_msg:+$_sec_msg, }Gatekeeper disabled"
+  fi
   shopt -u nocasematch
   local _sec_val; [[ "$_sec_status" == "ok" ]] && _sec_val="protected" || _sec_val="issues found"
-  json_result "security" "$_sec_status" "$_sec_val" "${_sec_msg:-FileVault on, SIP enabled}"
+  json_result "security" "$_sec_status" "$_sec_val" "${_sec_msg:-FileVault on, SIP enabled, Gatekeeper enabled}"
 
   $QUIET && return
 
-  # Raw output verbatim (no spctl — matches original)
   print_info "$fv_status"
   print_info "$sip_status"
+  [[ -n "$gk_status" ]] && print_info "Gatekeeper: ${gk_status#assessments }"
 }
 
 # ──────────────────────────────────────────────
